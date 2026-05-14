@@ -1,0 +1,256 @@
+<div class="main-wrapper">
+  
+  <div class="split left">
+    <div class="form-container">
+      
+      <img src="" class="logo-tdea" alt="Logo TdeA">
+      <h2 style="margin: 0 0 30px 0; text-align: center; font-size: 26px; color: #333;">Bienvenido a Claro Colombia</h2>
+      
+      <!-- ── SECCIÓN LOGIN ── -->
+      <div id="section-login" class="form-section" style="display:block;">
+        <div class="tabs">
+          <span class="active">Usuario y contraseña</span>
+        </div>
+
+        <div class="input-group">
+          <label>Usuario</label>
+          <input type="text" id="documento-login" placeholder="Número de documento">
+        </div>
+        
+        <div class="input-group">
+          <label>Contraseña</label>
+          <input type="password" id="password-login" placeholder="Escribe tu contraseña">
+        </div>
+
+        <a class="forgot-text" onclick="mostrarSeccionRecuperar()" style="cursor:pointer;">¿Olvidé mi contraseña?</a>
+
+        <div class="captcha-container" style="display: flex; align-items: center; justify-content: space-between; background: #f9f9f9; padding: 8px 12px; border: 1px solid #d1d1d1; border-radius: 3px; margin: 15px 0; box-shadow: 0 1px 2px rgba(0,0,0,0.05); user-select: none;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <input type="checkbox" id="check-robot" style="width: 20px; height: 20px; cursor: pointer;">
+            <label for="check-robot" style="font-size: 14px; color: #555; font-family: 'Roboto', sans-serif; cursor: pointer;">No soy un robot</label>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: center; min-width: 50px;">
+            <img src="https://www.gstatic.com/recaptcha/api2/logo_48.png" width="30" alt="reCAPTCHA">
+            <span style="font-size: 8px; color: #777; font-weight: 400; margin-top: 2px;">reCAPTCHA</span>
+            <div style="display:flex; gap:3px;">
+               <a href="#" style="font-size:7px; color:#777; text-decoration:none;">Privacidad</a>
+               <a href="#" style="font-size:7px; color:#777; text-decoration:none;">Términos</a>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn-primary" onclick="iniciarSesion()" style="width:100%; margin-top:10px;">
+          Iniciar sesión
+        </button>
+
+        <!-- Separador -->
+        <div style="display:flex;align-items:center;margin:14px 0;gap:10px;">
+          <div style="flex:1;height:1px;background:#e0e0e0;"></div>
+          <span style="font-size:12px;color:#999;white-space:nowrap;">o accede sin contraseña</span>
+          <div style="flex:1;height:1px;background:#e0e0e0;"></div>
+        </div>
+
+        <button id="btn-sso-otp" onclick="mostrarSeccionSSO()"
+          style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;
+                 padding:10px;border:1.5px solid #dadce0;border-radius:6px;background:#fff;
+                 font-size:14px;font-weight:500;color:#3c4043;cursor:pointer;
+                 transition:box-shadow 0.2s,border-color 0.2s;"
+          onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.12)';this.style.borderColor='#bbb';"
+          onmouseout="this.style.boxShadow='none';this.style.borderColor='#dadce0';">
+          ✉️ Continuar con mi correo
+        </button>
+
+        <button class="btn-secondary" onclick="mostrarSeccionRegistro()"
+          style="width:100%;margin-top:10px;background:#f0f0f0;color:#333;">
+          Regístrate
+        </button>
+      </div>
+
+      <!-- ── SECCIÓN SSO OTP ── (al mismo nivel que section-login) -->
+         <!-- ── SECCIÓN SSO GOOGLE ── -->
+      <div id="section-sso" class="form-section" style="display:none;">
+        <h3 style="text-align:center;color:#ef3340;">Acceso con Google</h3>
+      <p style="text-align:center;font-size:13px;color:#666;margin-bottom:20px;">
+    Usaremos tu cuenta de Google para verificar tu identidad.
+  </p>
+
+  <!-- Botón Google renderizado por GSI -->
+  <div id="google-btn-container" style="display:flex;justify-content:center;margin-bottom:16px;"></div>
+
+  <!-- Error SSO -->
+  <div id="sso-error" style="display:none;background:#fff3f3;border:1px solid #f5c6cb;
+       border-radius:6px;padding:12px;font-size:13px;color:#c0392b;text-align:center;margin-bottom:12px;">
+  </div>
+
+  <button class="btn-primary" onclick="mostrarSeccionLogin()"
+    style="width:100%;margin-top:4px;">
+    ← Volver
+  </button>
+</div>     
+              
+
+      <!-- ── SECCIÓN REGISTRO ── -->
+      <div id="section-registro" class="form-section" style="display:none;">
+        <h3 style="text-align:center; color: #ef3340;">Crear cuenta nueva</h3>
+        
+        <div class="input-group">
+          <label>Rol solicitado</label>
+          <select id="rol-registro" class="custom-select" onchange="verificarRolCliente(this.value)">
+            <option value="3">Usuario (Cliente)</option> 
+            <option value="2">Vendedor (Empleado)</option>
+            <option value="1">Administrador (Empleado)</option>
+          </select>
+        </div>
+
+        <div class="input-group">
+          <label>Documento de Identidad</label>
+          <input type="text" id="documento-registro" placeholder="Ingresa tu documento">
+        </div>
+
+        <div id="campos-cliente" style="display: block; background: #f9f9f9; padding: 10px; border-radius: 8px; margin-bottom: 15px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div class="input-group">
+              <label>Tipo Doc.</label>
+              <select id="tipo-doc-registro" class="custom-select">
+                <option value="CC">CC</option>
+                <option value="TI">TI</option>
+                <option value="CE">CE</option>
+              </select>
+            </div>
+            <div class="input-group">
+              <label>Teléfono</label>
+              <input type="text" id="tel-registro" placeholder="300...">
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div class="input-group"><label>1er Nombre</label><input type="text" id="nombre1-registro"></div>
+            <div class="input-group"><label>2do Nombre</label><input type="text" id="nombre2-registro"></div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div class="input-group"><label>1er Apellido</label><input type="text" id="apellido1-registro"></div>
+            <div class="input-group"><label>2do Apellido</label><input type="text" id="apellido2-registro"></div>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label>Correo Electrónico</label>
+          <input type="email" id="correo-registro" placeholder="ejemplo@correo.com">
+        </div>
+
+        <div class="input-group">
+          <label>Contraseña</label>
+          <input type="password" id="password-registro" onkeyup="validarClaveEnTiempoReal(this.value)" placeholder="Mín. 10 caracteres">
+          <small id="pass-feedback" style="font-size: 11px; color: #666; display: block; margin-top: 5px;">
+            Debe tener: 10+ caracteres, Mayúscula, Minúscula, Número y Símbolo (#$@).
+          </small>
+        </div>
+
+        <div class="actions">
+          <button class="btn-secondary" id="btn-registrar-final" onclick="registrarNuevo()" disabled style="opacity: 0.5;">Finalizar Registro</button>
+          <button class="btn-primary" onclick="mostrarSeccionLogin()">Volver</button>
+        </div>
+      </div>
+
+      <!-- ── SECCIÓN RECUPERAR ── -->
+      <div id="section-recuperar" class="form-section" style="display:none;">
+        <h3 style="text-align:center;">Recuperar acceso</h3>
+        <div id="recuperar-paso-1">
+          <div class="input-group">
+            <label>Ingresa tu documento</label>
+            <input type="text" id="documento-recuperar" placeholder="Número registrado">
+          </div>
+          <div class="actions">
+            <button class="btn-secondary" onclick="generarToken()">Enviar Token al Correo</button>
+            <button class="btn-primary" onclick="mostrarSeccionLogin()">Cancelar</button>
+          </div>
+        </div>
+        <div id="recuperar-paso-2" style="display:none;">
+          <div class="input-group">
+            <label>Código Token</label>
+            <input type="text" id="token-recuperar" placeholder="Revisa tu email">
+          </div>
+          <div class="input-group">
+            <label>Nueva Contraseña</label>
+            <input type="password" id="password-recuperar-nuevo" placeholder="Nueva clave segura">
+          </div>
+          <div class="actions">
+            <button class="btn-secondary" onclick="validarTokenYActualizar()">Cambiar Contraseña</button>
+          </div>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+
+  <!-- Panel derecho -->
+  <div class="split right" id="img-derecha" role="complementary" aria-label="Panel de bienvenida">
+
+    <div id="loader-imagen" class="loader-container" role="status" aria-live="polite" aria-label="Cargando">
+      <div class="spinner" aria-hidden="true"></div>
+      <p class="loader-texto">Cargando interfaz...</p>
+    </div>
+
+    <section id="info-registro" class="info-registro" aria-hidden="true">
+      <div class="info-registro__badge">
+        <span class="badge-dot" aria-hidden="true"></span>
+        Servicio verificado
+      </div>
+      <h2 class="info-registro__titulo">Únete a <strong>Claro</strong></h2>
+      <p class="info-registro__descripcion">
+        Crea tu cuenta para gestionar tus servicios y disfrutar de beneficios exclusivos.
+      </p>
+      <ul class="info-registro__beneficios" aria-label="Beneficios">
+        <li>📶 Gestión de planes en tiempo real</li>
+        <li>🎁 Ofertas y promociones exclusivas</li>
+        <li>🔒 Datos protegidos y cifrados</li>
+      </ul>
+      <footer class="info-registro__footer">
+        <small>Seguridad garantizada por <strong>TdeA</strong></small>
+      </footer>
+    </section>
+
+    <section id="info-recuperar" class="info-recuperar" aria-hidden="true">
+      <div class="info-recuperar__header">
+        <div class="info-recuperar__badge">
+          <span class="badge-dot" aria-hidden="true"></span>
+          Recuperación segura
+        </div>
+        <h2 class="info-recuperar__titulo">Recupera tu <strong>acceso</strong></h2>
+        <p class="info-recuperar__descripcion">Sigue estos pasos para restablecer tu contraseña de forma segura.</p>
+      </div>
+      <div class="pasos-container">
+        <div class="paso" id="paso-1">
+          <div class="paso__icono">📄</div>
+          <div class="paso__contenido">
+            <span class="paso__numero">01</span>
+            <h3 class="paso__titulo">Ingresa tu documento</h3>
+            <p class="paso__desc">Escribe el número registrado en tu cuenta.</p>
+          </div>
+          <div class="paso__linea"></div>
+        </div>
+        <div class="paso" id="paso-2">
+          <div class="paso__icono">📧</div>
+          <div class="paso__contenido">
+            <span class="paso__numero">02</span>
+            <h3 class="paso__titulo">Recibe el token</h3>
+            <p class="paso__desc">Te enviaremos un código único a tu correo registrado.</p>
+          </div>
+          <div class="paso__linea"></div>
+        </div>
+        <div class="paso" id="paso-3">
+          <div class="paso__icono">🔐</div>
+          <div class="paso__contenido">
+            <span class="paso__numero">03</span>
+            <h3 class="paso__titulo">Nueva contraseña</h3>
+            <p class="paso__desc">Ingresa el token y define tu nueva clave segura.</p>
+          </div>
+        </div>
+      </div>
+      <footer class="info-recuperar__footer">
+        <small>Seguridad garantizada por <strong>TdeA</strong></small>
+      </footer>
+    </section>
+
+  </div>
+
+</div>

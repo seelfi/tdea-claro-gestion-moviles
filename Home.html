@@ -1,0 +1,1319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Portal Corporativo — Home</title>
+  <?!= include('Estilos_Home'); ?>
+</head>
+<body>
+
+<div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-icon" id="brandIconWrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M12 8v4l3 3"/>
+      </svg>
+    </div>
+    <div class="brand-name-wrap">
+      <span class="brand-name">CLARO</span>
+      <span class="brand-sub">Colombia · TdeA</span>
+    </div>
+  </div>
+
+  <div class="sidebar-divider"></div>
+  <nav class="sidebar-nav" id="sidebarNav"></nav>
+  <div style="flex:1"></div>
+  <div class="sidebar-divider"></div>
+
+  <div class="sidebar-footer">
+    <button class="sidebar-item logout-btn" onclick="confirmarCerrarSesion()" title="Cerrar Sesión">
+      <span class="ink-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+      </span>
+      <span class="ink-label">Cerrar Sesión</span>
+    </button>
+  </div>
+</aside>
+
+<div class="layout" id="layout">
+
+  <header class="topbar">
+    <button class="toggle-btn" id="toggleBtn" onclick="toggleSidebar()" title="Menú">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="topbar-title" id="topbarTitle">Dashboard</div>
+    <div class="topbar-right">
+      <button class="topbar-action" onclick="mostrarModalCambioPass()" title="Cambiar contraseña">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        <span class="action-label">Contraseña</span>
+      </button>
+      <button class="user-chip" title="Perfil">
+        <div class="user-avatar" id="userAvatar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+        </div>
+        <div class="user-info">
+          <span class="user-name" id="userName">Cargando...</span>
+          <span class="user-role" id="userRole">—</span>
+        </div>
+      </button>
+    </div>
+  </header>
+
+<main class="main-content" id="mainContent">
+
+  <section class="panel active" id="panel-dashboard">
+    <div class="panel-header">
+      <h2 class="panel-title">Catálogo de Productos</h2>
+      <p class="panel-subtitle">Explora nuestro inventario disponible</p>
+    </div>
+    <div class="product-grid" id="productGrid">
+      <div class="product-skeleton"></div>
+      <div class="product-skeleton"></div>
+      <div class="product-skeleton"></div>
+      <div class="product-skeleton"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-registrar-venta">
+  <div class="panel-header">
+    <h2 class="panel-title">Registrar Venta</h2>
+    <p class="panel-subtitle">Completa los datos para registrar una nueva venta</p>
+  </div>
+
+  <div class="venta-grid">
+
+    <!-- PASO 1: Cliente -->
+    <div class="venta-card">
+      <div class="venta-card-title"><span class="venta-step">1</span> Datos del Cliente</div>
+      <div class="field-group">
+        <label class="field-label">Documento del cliente</label>
+        <div class="field-wrap">
+          <input class="field-input" type="text" id="ventaDocCliente" placeholder="Ej: 1012345678"/>
+          <button class="btn-buscar" onclick="buscarClienteVenta()">Buscar</button>
+        </div>
+      </div>
+      <div class="venta-resultado" id="resultadoCliente" style="display:none">
+        <div class="resultado-nombre" id="clienteNombre"></div>
+        <div class="resultado-sub"    id="clienteTel"></div>
+      </div>
+    </div>
+
+    <!-- PASO 2: Producto por IMEI -->
+    <div class="venta-card">
+      <div class="venta-card-title"><span class="venta-step">2</span> Producto por IMEI</div>
+
+      <div class="field-group">
+        <label class="field-label">Equipos disponibles en tu sede</label>
+        <div id="imeiSelectWrap">
+          <div id="imeiSelectLoading"
+               style="color:var(--text-3);font-size:13px;padding:8px 0;
+                      display:flex;align-items:center;gap:8px">
+            <div class="tabla-spinner"></div>
+            <span>Cargando equipos...</span>
+          </div>
+          <select id="imeiSelect" class="field-input"
+                  style="display:none; padding:10px 14px"
+                  onchange="onIMEISelectChange()">
+            <option value="">— Selecciona un equipo —</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Fallback manual -->
+      <div style="text-align:right; margin-top:4px">
+        <a href="#" id="toggleManualIMEI" onclick="toggleIMEIManual(event)"
+           style="font-size:12px;color:var(--text-3);text-decoration:underline">
+          Ingresar IMEI manualmente
+        </a>
+      </div>
+      <div id="imeiManualWrap" style="display:none; margin-top:8px">
+        <div class="field-group">
+          <label class="field-label">IMEI manual</label>
+          <div class="field-wrap">
+            <input class="field-input" type="text" id="ventaIMEI"
+                   placeholder="Ej: 354687110123456"/>
+            <button class="btn-buscar" onclick="buscarIMEIVenta()">Buscar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resultado del producto -->
+      <div class="venta-resultado" id="resultadoProducto" style="display:none">
+        <div class="resultado-nombre" id="productoNombre"></div>
+        <div class="resultado-sub"    id="productoDetalle"></div>
+        <div class="resultado-precio" id="productoPrecio"></div>
+      </div>
+    </div>
+
+    <!-- PASO 3: Resumen -->
+    <div class="venta-card venta-card-full">
+      <div class="venta-card-title"><span class="venta-step">3</span> Resumen de Venta</div>
+      <div class="venta-resumen" id="ventaResumen">
+        <p style="color:var(--text-3);font-size:14px">
+          Completa los pasos anteriores para ver el resumen.
+        </p>
+      </div>
+      <div class="venta-actions" id="ventaActions" style="display:none">
+        <button class="btn-ghost" onclick="limpiarVenta()">Cancelar</button>
+        <button class="btn-primary" id="btnConfirmarVenta" onclick="confirmarVenta()">
+          <span id="btnVentaText">Confirmar Venta</span>
+          <span class="spinner" id="spinnerVenta" style="display:none"></span>
+        </button>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+  <section class="panel" id="panel-ventas">
+    <div class="panel-header">
+      <h2 class="panel-title">Todas las Ventas</h2>
+      <p class="panel-subtitle">Historial completo de ventas registradas en el sistema</p>
+    </div>
+    <div class="tabla-toolbar">
+      <input class="tabla-buscar" type="text" id="buscarVenta"
+             placeholder="Buscar por ID, Factura o IMEI..." oninput="filtrarTablaVentas()"/>
+      <button class="btn-refresh" onclick="cargarTodasLasVentas()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+          <polyline points="23 4 23 10 17 10"/>
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+        </svg>
+        Actualizar
+      </button>
+    </div>
+    <div class="tabla-wrap">
+      <div class="tabla-loading" id="ventasLoading"><div class="tabla-spinner"></div><span>Cargando ventas...</span></div>
+      <table class="tabla" id="tablaVentas" style="display:none">
+        <thead><tr><th>ID Venta</th><th>Nº Factura</th><th>IMEI</th><th>Valor Venta</th></tr></thead>
+        <tbody id="tablaVentasBody"></tbody>
+      </table>
+      <div class="tabla-empty" id="ventasEmpty" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40" style="opacity:0.3">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+        </svg>
+        <p>No se encontraron ventas</p>
+      </div>
+    </div>
+    <div class="tabla-footer" id="ventasFooter"></div>
+  </section>
+
+  <section class="panel" id="panel-inventario">
+    <div class="panel-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div>
+        <h2 class="panel-title">Inventario</h2>
+        <p class="panel-subtitle">Stock global y por sede</p>
+      </div>
+      <button class="btn-primary" onclick="abrirModalRegistrarEquipos()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Registrar Equipos
+      </button>
+    </div>
+    <div class="tabla-toolbar">
+      <input class="tabla-buscar" type="text" id="buscarInventario"
+             placeholder="Buscar por código o producto..." oninput="filtrarInventario()"/>
+      <select id="filtroPDV" onchange="filtrarInventario()"
+              style="padding:9px 14px;border-radius:10px;border:1px solid var(--border);
+                     background:var(--bg-2);font-size:14px;color:var(--text-1);font-family:inherit;">
+        <option value="">Todas las sedes</option>
+      </select>
+      <button class="btn-refresh" onclick="cargarInventario()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+          <polyline points="23 4 23 10 17 10"/>
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+        </svg>
+        Actualizar
+      </button>
+    </div>
+    <div class="tabla-wrap">
+      <div class="tabla-loading" id="invLoading"><div class="tabla-spinner"></div><span>Cargando inventario...</span></div>
+      <table class="tabla" id="tablaInventario" style="display:none">
+        <thead>
+          <tr>
+            <th>Cód. Inventario</th><th>Cód. Producto</th><th>Producto</th>
+            <th>Stock Disponible</th><th>Stock Vendido</th><th>Precio Unitario</th><th>Sedes</th>
+          </tr>
+        </thead>
+        <tbody id="tablaInventarioBody"></tbody>
+      </table>
+      <div class="tabla-empty" id="invEmpty" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40" style="opacity:0.3">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+        </svg>
+        <p>No se encontraron productos</p>
+      </div>
+    </div>
+    <div class="tabla-footer" id="invFooter"></div>
+  </section>
+
+  <section class="panel" id="panel-empleados">
+    <div class="panel-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div>
+        <h2 class="panel-title">Empleados</h2>
+        <p class="panel-subtitle">Gestión del personal de la empresa</p>
+      </div>
+      <button class="btn-primary" onclick="abrirModalCrearEmpleado()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Nuevo Empleado
+      </button>
+    </div>
+    <div class="tabla-toolbar">
+      <input class="tabla-buscar" type="text" id="buscarEmpleado"
+             placeholder="Buscar por nombre, documento o cargo..." oninput="filtrarEmpleados()"/>
+      <select id="filtroEstadoEmp" onchange="filtrarEmpleados()"
+              style="padding:9px 14px;border-radius:10px;border:1px solid var(--border);
+                     background:var(--bg-2);font-size:14px;color:var(--text-1);font-family:inherit;">
+        <option value="">Todos los estados</option>
+        <option value="Activo">Activo</option>
+        <option value="Inactivo">Inactivo</option>
+      </select>
+      <button class="btn-refresh" onclick="cargarEmpleados()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+          <polyline points="23 4 23 10 17 10"/>
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+        </svg>
+        Actualizar
+      </button>
+    </div>
+    <div class="tabla-wrap">
+      <div class="tabla-loading" id="empLoading"><div class="tabla-spinner"></div><span>Cargando empleados...</span></div>
+      <table class="tabla" id="tablaEmpleados" style="display:none">
+        <thead>
+          <tr>
+            <th>Nombre</th><th>Documento</th><th>Cargo</th><th>Correo</th>
+            <th>Estado</th><th>Sede</th><th>Ciudad</th><th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tablaEmpleadosBody"></tbody>
+      </table>
+      <div class="tabla-empty" id="empEmpty" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40" style="opacity:0.3">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        <p>No se encontraron empleados</p>
+      </div>
+    </div>
+    <div class="tabla-footer" id="empFooter"></div>
+  </section>
+
+  <section class="panel" id="panel-puntos-venta">
+    <div class="panel-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div>
+        <h2 class="panel-title">Puntos de Venta</h2>
+        <p class="panel-subtitle">Gestión de sedes comerciales</p>
+      </div>
+      <button class="btn-primary" onclick="abrirModalCrearPDV()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Nuevo PDV
+      </button>
+    </div>
+    <div class="tabla-toolbar">
+      <input class="tabla-buscar" type="text" id="buscarPDV"
+             placeholder="Buscar por nombre o ciudad..." oninput="filtrarPDVs()"/>
+      <button class="btn-refresh" onclick="cargarPDVs()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+          <polyline points="23 4 23 10 17 10"/>
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+        </svg>
+        Actualizar
+      </button>
+    </div>
+    <div class="tabla-wrap">
+      <div class="tabla-loading" id="pdvLoading"><div class="tabla-spinner"></div><span>Cargando puntos de venta...</span></div>
+      <table class="tabla" id="tablaPDVs" style="display:none">
+        <thead>
+          <tr>
+            <th>Código</th><th>Nombre</th><th>Ciudad</th><th>Dirección</th>
+            <th>Contacto</th><th>Horario</th><th>Empleados</th><th>Stock</th><th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tablaPDVsBody"></tbody>
+      </table>
+      <div class="tabla-empty" id="pdvEmpty" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40" style="opacity:0.3">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+        <p>No se encontraron puntos de venta</p>
+      </div>
+    </div>
+    <div class="tabla-footer" id="pdvFooter"></div>
+  </section>
+<section class="panel" id="panel-facturas">
+  <div class="panel-header">
+    <h2 class="panel-title">Facturas</h2>
+    <p class="panel-subtitle">Historial de facturación del sistema</p>
+  </div>
+  <div class="tabla-toolbar">
+    <input class="tabla-buscar" type="text" id="buscarFactura"
+           placeholder="Buscar por factura, cliente, vendedor o sede..."
+           oninput="filtrarFacturas()"/>
+    <button class="btn-refresh" onclick="cargarFacturas()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+        <polyline points="23 4 23 10 17 10"/>
+        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+      </svg>
+      Actualizar
+    </button>
+  </div>
+  <div class="tabla-wrap">
+    <div class="tabla-loading" id="facLoading">
+      <div class="tabla-spinner"></div><span>Cargando facturas...</span>
+    </div>
+    <table class="tabla" id="tablaFacturas" style="display:none">
+      <thead>
+        <tr>
+          <th>Nº Factura</th>
+          <th>Fecha</th>
+          <th>Total</th>
+          <th>Doc. Cliente</th>
+          <th>Vendedor</th>
+          <th>Sede</th>
+        </tr>
+      </thead>
+      <tbody id="tablaFacturasBody"></tbody>
+    </table>
+    <div class="tabla-empty" id="facEmpty" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+           width="40" height="40" style="opacity:0.3">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+      </svg>
+      <p>No se encontraron facturas</p>
+    </div>
+  </div>
+  <div class="tabla-footer" id="facFooter"></div>
+</section>
+
+<section class="panel" id="panel-mis-ventas">
+  <div class="panel-header">
+    <h2 class="panel-title">Mis Ventas</h2>
+    <p class="panel-subtitle">Historial de ventas registradas por ti</p>
+  </div>
+  <div class="tabla-toolbar">
+    <input class="tabla-buscar" type="text" id="buscarMisVentas"
+           placeholder="Buscar por factura o IMEI..." oninput="filtrarMisVentas()"/>
+    <button class="btn-refresh" onclick="cargarMisVentas()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+        <polyline points="23 4 23 10 17 10"/>
+        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+      </svg>
+      Actualizar
+    </button>
+  </div>
+  <div class="tabla-wrap">
+    <div class="tabla-loading" id="misVentasLoading">
+      <div class="tabla-spinner"></div><span>Cargando ventas...</span>
+    </div>
+    <table class="tabla" id="tablaMisVentas" style="display:none">
+      <thead>
+        <tr>
+          <th>ID Venta</th>
+          <th>Nº Factura</th>
+          <th>IMEI</th>
+          <th>Valor Venta</th>
+        </tr>
+      </thead>
+      <tbody id="tablaMisVentasBody"></tbody>
+    </table>
+    <div class="tabla-empty" id="misVentasEmpty" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+           width="40" height="40" style="opacity:0.3">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      </svg>
+      <p>No tienes ventas registradas</p>
+    </div>
+  </div>
+  <div class="tabla-footer" id="misVentasFooter"></div>
+</section>
+
+<section class="panel" id="panel-horario">
+  <div class="panel-header">
+    <h2 class="panel-title">Mi Horario</h2>
+    <p class="panel-subtitle">Tu turno laboral asignado</p>
+  </div>
+
+  <div id="horarioLoading" class="tabla-loading">
+    <div class="tabla-spinner"></div><span>Cargando horario...</span>
+  </div>
+
+  <div id="horarioCard" style="display:none;max-width:480px">
+    <div style="background:var(--bg-2);border:1px solid var(--border);border-radius:16px;overflow:hidden">
+
+      <!-- Header -->
+      <div style="padding:20px 24px;border-bottom:1px solid var(--border);
+                  display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:36px;height:36px;border-radius:10px;background:var(--accent-dim);
+                      display:flex;align-items:center;justify-content:center;color:var(--accent)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17">
+              <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+            </svg>
+          </div>
+          <span style="font-family:'Syne',sans-serif;font-weight:700;font-size:15px;color:var(--text-1)">Turno Asignado</span>
+        </div>
+        <div id="horarioEstado"></div>
+      </div>
+
+      <!-- Horas -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border)">
+        <div style="background:var(--bg-2);padding:24px;text-align:center">
+          <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;
+                      letter-spacing:0.8px;margin-bottom:10px">Entrada</div>
+          <div id="horarioIni" style="font-family:'Syne',sans-serif;font-size:36px;
+                font-weight:800;color:var(--accent);line-height:1"></div>
+        </div>
+        <div style="background:var(--bg-2);padding:24px;text-align:center">
+          <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;
+                      letter-spacing:0.8px;margin-bottom:10px">Salida</div>
+          <div id="horarioFin" style="font-family:'Syne',sans-serif;font-size:36px;
+                font-weight:800;color:var(--text-1);line-height:1"></div>
+        </div>
+      </div>
+
+      <!-- Mensaje dinámico -->
+      <div id="horarioMensaje" style="padding:16px 24px;display:flex;align-items:center;gap:10px;
+           background:var(--bg-3);border-top:1px solid var(--border)">
+        <span id="horarioMensajeIcon" style="font-size:16px;flex-shrink:0"></span>
+        <span id="horarioMensajeTexto" style="font-size:13px;color:var(--text-2)"></span>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="horarioError" style="display:none;color:var(--text-3);font-size:14px;padding:40px 0"></div>
+</section>
+
+<!-- PANEL CARRITO -->
+<section class="panel" id="panel-carrito">
+  <div class="panel-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+    <div>
+      <h2 class="panel-title">Mi Carrito</h2>
+      <p class="panel-subtitle">Selecciona los equipos que deseas comprar</p>
+    </div>
+    <button class="btn-primary" id="btnComprarCarrito" onclick="procesarCompraCarrito()" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+        <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+        <line x1="3" y1="6" x2="21" y2="6"/>
+        <path d="M16 10a4 4 0 0 1-8 0"/>
+      </svg>
+      <span id="btnComprarTexto">Confirmar compra</span>
+      <span class="spinner" id="spinnerCarrito" style="display:none"></span>
+    </button>
+  </div>
+
+  <!-- Productos disponibles -->
+  <div id="carritoProductosWrap">
+    <p style="font-size:12px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">
+      Elige un producto
+    </p>
+    <div id="carritoProductosGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:24px">
+      <div class="product-skeleton"></div>
+      <div class="product-skeleton"></div>
+      <div class="product-skeleton"></div>
+    </div>
+  </div>
+
+  <!-- Items en carrito -->
+  <div id="carritoItemsWrap" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <p style="font-size:12px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px">
+        Tu carrito — <span id="carritoCount">0</span> item(s)
+      </p>
+      <button class="btn-ghost" style="font-size:12px" onclick="vaciarCarrito()">Vaciar</button>
+    </div>
+    <div id="carritoItems" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px"></div>
+    <div style="background:var(--bg-2);border:1px solid var(--border);border-radius:12px;padding:16px 20px;
+                display:flex;align-items:center;justify-content:space-between;max-width:420px">
+      <span style="font-size:14px;color:var(--text-2)">Total estimado</span>
+      <span id="carritoTotal" style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--accent)">$ 0</span>
+    </div>
+  </div>
+
+  <!-- Selector de IMEI (modal inline) -->
+  <div id="carritoSelectorWrap" style="display:none;margin-top:20px">
+    <div style="background:var(--bg-2);border:1px solid var(--border);border-radius:14px;padding:20px;max-width:480px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <span style="font-weight:700;font-size:15px;color:var(--text-1)" id="selectorProductoNombre"></span>
+        <button class="btn-ghost" style="font-size:12px" onclick="cerrarSelectorIMEI()">✕ Cancelar</button>
+      </div>
+      <p style="font-size:13px;color:var(--text-3);margin-bottom:14px">Selecciona el color/unidad disponible:</p>
+      <div id="selectorIMEIs" style="display:flex;flex-direction:column;gap:8px;max-height:280px;overflow-y:auto"></div>
+      <div id="selectorLoading" style="display:none;padding:20px 0;text-align:center;color:var(--text-3);font-size:14px">
+        Buscando disponibilidad...
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="panel" id="panel-mis-compras">
+  <div class="panel-header">
+    <h2 class="panel-title">Mis Compras</h2>
+    <p class="panel-subtitle">Historial de equipos adquiridos</p>
+  </div>
+  <div class="tabla-toolbar">
+    <input class="tabla-buscar" type="text" id="buscarMisCompras"
+           placeholder="Buscar por factura o IMEI..." oninput="filtrarMisCompras()"/>
+    <button class="btn-refresh" onclick="cargarMisCompras()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+        <polyline points="23 4 23 10 17 10"/>
+        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+      </svg>
+      Actualizar
+    </button>
+  </div>
+  <div class="tabla-wrap">
+    <div class="tabla-loading" id="misComprasLoading">
+      <div class="tabla-spinner"></div><span>Cargando compras...</span>
+    </div>
+    <table class="tabla" id="tablaMisCompras" style="display:none">
+      <thead>
+        <tr>
+          <th>ID</th><th>Nº Factura</th><th>IMEI</th><th>Total</th>
+        </tr>
+      </thead>
+      <tbody id="tablaMisComprasBody"></tbody>
+    </table>
+    <div class="tabla-empty" id="misComprasEmpty" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+           width="40" height="40" style="opacity:0.3">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      </svg>
+      <p>No tienes compras registradas</p>
+    </div>
+  </div>
+  <div class="tabla-footer" id="misComprasFooter"></div>
+</section>
+
+<section class="panel" id="panel-perfil">
+  <div class="panel-header">
+    <h2 class="panel-title">Mi Perfil</h2>
+    <p class="panel-subtitle">Tus datos personales</p>
+  </div>
+
+  <div id="perfilLoading" class="tabla-loading">
+    <div class="tabla-spinner"></div><span>Cargando perfil...</span>
+  </div>
+
+  <div id="perfilCard" style="display:none;max-width:480px">
+    <div style="background:var(--bg-2);border:1px solid var(--border);border-radius:16px;overflow:hidden">
+
+      <!-- Avatar + nombre -->
+      <div style="padding:24px;display:flex;align-items:center;gap:16px;border-bottom:1px solid var(--border)">
+        <div id="perfilAvatar"
+             style="width:56px;height:56px;border-radius:50%;background:var(--accent);
+                    display:flex;align-items:center;justify-content:center;
+                    font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:#fff;flex-shrink:0"></div>
+        <div>
+          <div id="perfilNombreCompleto"
+               style="font-family:'Syne',sans-serif;font-weight:700;font-size:17px;color:var(--text-1)"></div>
+          <div id="perfilDocDisplay"
+               style="font-size:12px;color:var(--text-3);margin-top:2px"></div>
+        </div>
+      </div>
+
+      <!-- Campos -->
+      <div style="padding:20px;display:flex;flex-direction:column;gap:14px">
+
+        <div class="field-group">
+          <label class="field-label">Teléfono</label>
+          <input class="field-input" type="text" id="perfilTelefono" placeholder="Ej: 3001234567"/>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Correo electrónico</label>
+          <input class="field-input" type="email" id="perfilCorreo" placeholder="correo@ejemplo.com"/>
+          <span style="font-size:11px;color:var(--text-3);margin-top:4px">
+            ⚠️ Este correo se usa para recuperar tu contraseña.
+          </span>
+        </div>
+
+        <div class="modal-alert" id="perfilAlerta"></div>
+
+        <div style="display:flex;justify-content:flex-end;padding-top:4px">
+          <button class="btn-primary" id="btnGuardarPerfil" onclick="guardarPerfil()">
+            <span id="btnGuardarPerfilText">Guardar cambios</span>
+            <span class="spinner" id="spinnerPerfil" style="display:none"></span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div id="perfilError" style="display:none;color:var(--text-3);font-size:14px;padding:40px 0"></div>
+</section>
+
+<section class="panel" id="panel-metricas">
+  <div class="panel-header">
+    <h2 class="panel-title">Métricas</h2>
+    <p class="panel-subtitle">Indicadores clave desde Azure SQL</p>
+  </div>
+
+  <div id="metricasLoading" class="tabla-loading">
+    <div class="tabla-spinner"></div><span>Consultando Azure SQL...</span>
+  </div>
+
+  <div id="metricasContenido" style="display:none">
+
+    <!-- KPIs -->
+    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px">
+      <div style="background:var(--bg-3);border-radius:10px;padding:14px 16px">
+        <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px">Total ventas</div>
+        <div id="mTotalVentas" style="font-size:28px;font-weight:700;color:var(--accent);line-height:1">—</div>
+        <div style="font-size:12px;color:var(--text-3);margin-top:4px">transacciones</div>
+      </div>
+      <div style="background:var(--bg-3);border-radius:10px;padding:14px 16px">
+        <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px">Total ingresos</div>
+        <div id="mTotalIngresos" style="font-size:20px;font-weight:700;color:var(--accent);line-height:1.2;word-break:break-word">—</div>
+        <div style="font-size:12px;color:var(--text-3);margin-top:4px">acumulado</div>
+      </div>
+      <div style="background:var(--bg-3);border-radius:10px;padding:14px 16px">
+        <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px">Mejor sede</div>
+        <div id="mMejorSede" style="font-size:15px;font-weight:700;color:var(--text-1);line-height:1.2;padding-top:4px">—</div>
+        <div id="mMejorSedeInfo" style="font-size:12px;color:var(--text-3);margin-top:4px">—</div>
+      </div>
+      <div style="background:var(--bg-3);border-radius:10px;padding:14px 16px">
+        <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px">Producto top</div>
+        <div id="mProductoTop" style="font-size:15px;font-weight:700;color:var(--text-1);line-height:1.2;padding-top:4px">—</div>
+        <div id="mProductoTopInfo" style="font-size:12px;color:var(--text-3);margin-top:4px">—</div>
+      </div>
+    </div>
+
+    <!-- Fila 1 -->
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:16px">
+
+      <div style="background:var(--bg-2);border:1px solid var(--border);border-radius:14px;padding:18px 20px">
+        <div style="font-size:12px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Ingresos por sede</div>
+        <div style="font-size:11px;color:var(--text-3);margin-bottom:16px">Comparativo de facturación entre puntos de venta</div>
+        <div style="position:relative;height:160px">
+        <canvas id="chartSedes" role="img" aria-label="Gráfico de ingresos por sede"></canvas>
+        </div>
+        <div id="mSedesWrap"></div>
+        <div id="mSedesInsight" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--text-3)"></div>
+      </div>
+
+      <div style="background:var(--bg-2);border:1px solid var(--border);border-radius:14px;padding:18px 20px">
+        <div style="font-size:12px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Productos más vendidos</div>
+        <div style="font-size:11px;color:var(--text-3);margin-bottom:16px">Ranking por unidades y valor total generado</div>
+        <div id="mProductosWrap"></div>
+        <div id="mProductosInsight" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--text-3)"></div>
+      </div>
+
+    </div>
+
+    <!-- Fila 2 -->
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:16px">
+
+      <div style="background:var(--bg-2);border:1px solid var(--border);border-radius:14px;padding:18px 20px">
+        <div style="font-size:12px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Evolución mensual</div>
+        <div style="font-size:11px;color:var(--text-3);margin-bottom:14px">Ingresos acumulados por mes</div>
+        <div style="position:relative;height:160px">
+          <canvas id="chartMes" role="img" aria-label="Gráfico de evolución de ingresos por mes">Ingresos mensuales desde Azure SQL.</canvas>
+        </div>
+        <div id="mMesInsight" style="margin-top:10px;font-size:11px;color:var(--text-3)"></div>
+      </div>
+
+      <div style="background:var(--bg-2);border:1px solid var(--border);border-radius:14px;padding:18px 20px">
+        <div style="font-size:12px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Estado del stock</div>
+        <div style="font-size:11px;color:var(--text-3);margin-bottom:10px">Disponible vs vendido por producto</div>
+        <div style="display:flex;gap:16px;margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-3)">
+            <div style="width:8px;height:8px;border-radius:2px;background:#059c52"></div>Disponible
+          </div>
+          <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-3)">
+            <div style="width:8px;height:8px;border-radius:2px;background:#ef3340"></div>Vendido
+          </div>
+        </div>
+        <div id="mStockWrap"></div>
+      </div>
+
+    </div>
+
+    <div id="metricasError" style="display:none;color:#e05555;font-size:13px;padding:20px 0"></div>
+  </div>
+</section>
+
+</main>
+
+  <footer class="footer">
+    <span>© 2026 Portal Claro Colombia · TdeA · NIT-900999888 · PBX 6011234567</span>
+    <span class="footer-sep">·</span>
+    <span id="footerRole">—</span>
+    <span class="footer-sep">·</span>
+    <span id="footerTime"></span>
+  </footer>
+
+</div>
+
+<!-- MODAL LOGOUT -->
+<div class="modal-backdrop" id="modalLogout">
+  <div class="modal-card modal-sm">
+    <div class="modal-header">
+      <div class="modal-icon danger">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+      </div>
+      <h3>Cerrar sesión</h3>
+      <button class="modal-close" onclick="cerrarModalLogout()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-desc">¿Estás seguro de que deseas cerrar sesión? Serás redirigido al inicio.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="cerrarModalLogout()">Cancelar</button>
+      <button class="btn-danger" onclick="ejecutarLogout()">Cerrar sesión</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CAMBIO CONTRASEÑA -->
+<div class="modal-backdrop" id="modalCambioPass">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div class="modal-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+      </div>
+      <h3>Cambiar contraseña</h3>
+      <button class="modal-close" onclick="cerrarModalCambioPass()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="field-group">
+        <label class="field-label">Contraseña actual</label>
+        <div class="field-wrap">
+          <input class="field-input" type="password" id="passActual" placeholder="••••••••"/>
+          <button class="field-eye" onclick="togglePass('passActual')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Nueva contraseña</label>
+        <div class="field-wrap">
+          <input class="field-input" type="password" id="passNueva" placeholder="Mínimo 10 caracteres"/>
+          <button class="field-eye" onclick="togglePass('passNueva')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
+        <div class="pass-strength">
+          <div class="strength-bar"><span id="strengthBar"></span></div>
+          <span id="strengthLabel"></span>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Confirmar nueva contraseña</label>
+        <div class="field-wrap">
+          <input class="field-input" type="password" id="passConfirmar" placeholder="Repite la nueva contraseña"/>
+          <button class="field-eye" onclick="togglePass('passConfirmar')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="modal-alert" id="modalAlert"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="cerrarModalCambioPass()">Cancelar</button>
+      <button class="btn-primary" id="btnCambiarPass" onclick="ejecutarCambioPass()">
+        <span id="btnCambiarPassText">Guardar cambios</span>
+        <span class="spinner" id="spinnerCambio" style="display:none"></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CREAR EMPLEADO -->
+<div class="modal-backdrop" id="modalCrearEmpleado">
+  <div class="modal-card" style="max-width:560px">
+    <div class="modal-header">
+      <div class="modal-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+      </div>
+      <h3>Nuevo Empleado</h3>
+      <button class="modal-close" onclick="cerrarModalCrearEmpleado()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body" style="max-height:65vh;overflow-y:auto">
+
+      <p style="font-size:12px;font-weight:600;color:var(--text-3);text-transform:uppercase;
+                letter-spacing:0.5px;margin-bottom:4px">Datos Personales</p>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="field-group">
+          <label class="field-label">Tipo Documento</label>
+          <select id="ce_tipoDoc" class="field-input" style="padding:10px 14px">
+            <option value="CC">Cédula de Ciudadanía</option>
+            <option value="CE">Cédula Extranjería</option>
+            <option value="PA">Pasaporte</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Documento *</label>
+          <input class="field-input" type="text" id="ce_documento" placeholder="Número de documento"/>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Primer Nombre *</label>
+          <input class="field-input" type="text" id="ce_primerNombre" placeholder="Primer nombre"/>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Segundo Nombre</label>
+          <input class="field-input" type="text" id="ce_segundoNombre" placeholder="Segundo nombre"/>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Primer Apellido *</label>
+          <input class="field-input" type="text" id="ce_primerApellido" placeholder="Primer apellido"/>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Segundo Apellido</label>
+          <input class="field-input" type="text" id="ce_segundoApellido" placeholder="Segundo apellido"/>
+        </div>
+      </div>
+
+      <div style="height:1px;background:var(--border);margin:16px 0"></div>
+      <p style="font-size:12px;font-weight:600;color:var(--text-3);text-transform:uppercase;
+                letter-spacing:0.5px;margin-bottom:4px">Datos Laborales</p>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="field-group">
+          <label class="field-label">Cargo *</label>
+          <select id="ce_cargo" class="field-input" style="padding:10px 14px">
+            <option value="Administrador">Administrador</option>
+            <option value="Vendedor">Vendedor</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Sede (PDV) *</label>
+          <select id="ce_codPDV" class="field-input" style="padding:10px 14px">
+            <option value="">Selecciona una sede</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Correo Empresa *</label>
+          <input class="field-input" type="email" id="ce_correo" placeholder="correo@empresa.com"/>
+        </div>
+        <div class="field-group">
+          <label class="field-label">N° Contrato *</label>
+          <input class="field-input" type="text" id="ce_numContrato" placeholder="Ej: CONT-001"/>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Fecha Ingreso *</label>
+          <input class="field-input" type="date" id="ce_fechaIngreso"/>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Salario Base *</label>
+          <input class="field-input" type="number" id="ce_salario" placeholder="0"/>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Horario Inicio *</label>
+          <input class="field-input" type="time" id="ce_horIni"/>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Horario Fin *</label>
+          <input class="field-input" type="time" id="ce_horFin"/>
+        </div>
+      </div>
+
+      <div class="modal-alert" id="alertCrearEmp" style="margin-top:12px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="cerrarModalCrearEmpleado()">Cancelar</button>
+      <button class="btn-primary" id="btnCrearEmp" onclick="ejecutarCrearEmpleado()">
+        <span id="btnCrearEmpText">Registrar</span>
+        <span class="spinner" id="spinnerCrearEmp" style="display:none"></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR EMPLEADO -->
+<div class="modal-backdrop" id="modalEditarEmpleado">
+  <div class="modal-card" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+        </svg>
+      </div>
+      <h3>Editar Empleado</h3>
+      <button class="modal-close" onclick="cerrarModalEditarEmpleado()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="ee_documento"/>
+      <div class="field-group">
+        <label class="field-label">Empleado</label>
+        <div id="ee_nombreDisplay"
+             style="padding:10px 14px;background:var(--bg-3);border-radius:10px;
+                    font-size:14px;color:var(--text-2)"></div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Cargo</label>
+        <select id="ee_cargo" class="field-input" style="padding:10px 14px">
+          <option value="Administrador">Administrador</option>
+          <option value="Vendedor">Vendedor</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Estado</label>
+        <select id="ee_estado" class="field-input" style="padding:10px 14px">
+          <option value="Activo">Activo</option>
+          <option value="Inactivo">Inactivo</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Correo Empresa</label>
+        <input class="field-input" type="email" id="ee_correo" placeholder="correo@empresa.com"/>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Sede (PDV)</label>
+        <select id="ee_codPDV" class="field-input" style="padding:10px 14px">
+          <option value="">Sin cambios</option>
+        </select>
+      </div>
+      <div class="modal-alert" id="alertEditarEmp"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="cerrarModalEditarEmpleado()">Cancelar</button>
+      <button class="btn-primary" id="btnEditarEmp" onclick="ejecutarEditarEmpleado()">
+        <span id="btnEditarEmpText">Guardar</span>
+        <span class="spinner" id="spinnerEditarEmp" style="display:none"></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL REGISTRAR EQUIPOS -->
+<div class="modal-backdrop" id="modalRegistrarEquipos">
+  <div class="modal-card" style="max-width:620px">
+    <div class="modal-header">
+      <div class="modal-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+        </svg>
+      </div>
+      <h3>Registrar Equipos</h3>
+      <button class="modal-close" onclick="cerrarModalRegistrarEquipos()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="modal-body" style="max-height:70vh;overflow-y:auto;gap:16px">
+
+      <!-- PASO 1: Configuración -->
+      <div id="reqPaso1">
+        <p style="font-size:12px;font-weight:600;color:var(--text-3);text-transform:uppercase;
+                  letter-spacing:0.5px;margin-bottom:12px">Configuración del lote</p>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="field-group" style="grid-column:1/-1">
+            <label class="field-label">Producto *</label>
+            <select id="req_producto" class="field-input" style="padding:10px 14px"
+                    onchange="actualizarInfoProducto()">
+              <option value="">Selecciona un producto</option>
+              <option value="1" data-tamano='6.1"' data-peso="0.16" data-prefijo="SN-S23-" data-tac="35467890">Samsung Galaxy S23</option>
+              <option value="2" data-tamano='6.1"' data-peso="0.17" data-prefijo="SN-IP14-" data-tac="35298760">iPhone 14</option>
+              <option value="3" data-tamano='6.6"' data-peso="0.18" data-prefijo="SN-RN12-" data-tac="35812340">Xiaomi Redmi Note 12</option>
+              <option value="4" data-tamano='6.5"' data-peso="0.17" data-prefijo="SN-ME40-" data-tac="35674120">Motorola Edge 40</option>
+              <option value="5" data-tamano='6.4"' data-peso="0.19" data-prefijo="SN-SA54-" data-tac="35963210">Samsung Galaxy A54</option>
+            </select>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Sede destino *</label>
+            <select id="req_pdv" class="field-input" style="padding:10px 14px">
+              <option value="">Selecciona una sede</option>
+            </select>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Cantidad (1–50) *</label>
+            <input class="field-input" type="number" id="req_cantidad"
+                   min="1" max="50" placeholder="Ej: 10"/>
+          </div>
+        </div>
+
+        <div class="modal-alert" id="alertReqPaso1" style="margin-top:12px"></div>
+      </div>
+
+      <!-- PASO 2: Vista previa -->
+      <div id="reqPaso2" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <p style="font-size:12px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px">
+            Vista previa — <span id="reqPreviewCount"></span> equipos
+          </p>
+          <button class="btn-ghost" style="font-size:12px;padding:4px 10px"
+                  onclick="regenerarEquipos()">↺ Regenerar</button>
+        </div>
+        <div style="background:var(--bg-3);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+          <table class="tabla" id="tablaPreviewEquipos" style="font-size:12px">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>IMEI</th>
+                <th>Serial</th>
+                <th>Color</th>
+                <th>Tamaño</th>
+              </tr>
+            </thead>
+            <tbody id="tablaPreviewBody"></tbody>
+          </table>
+        </div>
+        <div class="modal-alert" id="alertReqPaso2" style="margin-top:12px"></div>
+      </div>
+
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="cerrarModalRegistrarEquipos()">Cancelar</button>
+      <!-- Paso 1 -->
+      <button class="btn-primary" id="btnGenerarEquipos" onclick="generarVistaPrevia()">
+        <span>Generar vista previa</span>
+      </button>
+      <!-- Paso 2 -->
+      <button class="btn-primary" id="btnConfirmarEquipos" style="display:none"
+              onclick="confirmarRegistroEquipos()">
+        <span id="btnConfirmarEqText">Confirmar registro</span>
+        <span class="spinner" id="spinnerEq" style="display:none"></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CREAR PDV -->
+<div class="modal-backdrop" id="modalCrearPDV">
+  <div class="modal-card" style="max-width:520px">
+    <div class="modal-header">
+      <div class="modal-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+      </div>
+      <h3>Nuevo Punto de Venta</h3>
+      <button class="modal-close" onclick="cerrarModalCrearPDV()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="field-group" style="grid-column:1/-1">
+          <label class="field-label">Nombre *</label>
+          <input class="field-input" type="text" id="cp_nombre" placeholder="Ej: Sede Centro"/>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Contacto *</label>
+          <input class="field-input" type="text" id="cp_contacto" placeholder="Teléfono o Nombre"/>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Horario *</label>
+          <input class="field-input" type="text" id="cp_horario" placeholder="Ej: 8am - 6pm"/>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Departamento *</label>
+          <input class="field-input" type="text" id="cp_departamento" placeholder="Ej: Antioquia"/>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Ciudad *</label>
+          <input class="field-input" type="text" id="cp_ciudad" placeholder="Ej: Medellín"/>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Barrio *</label>
+          <input class="field-input" type="text" id="cp_barrio" placeholder="Ej: El Poblado"/>
+        </div>
+        <div class="field-group" style="grid-column:1/-1">
+          <label class="field-label">Dirección *</label>
+          <input class="field-input" type="text" id="cp_direccion" placeholder="Ej: Cra 43A # 1-50"/>
+        </div>
+      </div>
+      <div class="modal-alert" id="alertCrearPDV" style="margin-top:12px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="cerrarModalCrearPDV()">Cancelar</button>
+      <button class="btn-primary" id="btnCrearPDV" onclick="ejecutarCrearPDV()">
+        <span id="btnCrearPDVText">Registrar</span>
+        <span class="spinner" id="spinnerCrearPDV" style="display:none"></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR PDV -->
+<div class="modal-backdrop" id="modalEditarPDV">
+  <div class="modal-card" style="max-width:520px">
+    <div class="modal-header">
+      <div class="modal-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+        </svg>
+      </div>
+      <h3>Editar Punto de Venta</h3>
+      <button class="modal-close" onclick="cerrarModalEditarPDV()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="ep_codigo"/>
+      <div class="field-group">
+        <label class="field-label">Código PDV</label>
+        <div id="ep_codigoDisplay"
+             style="padding:10px 14px;background:var(--bg-3);border-radius:10px;
+                    font-size:14px;color:var(--text-2)"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="field-group" style="grid-column:1/-1">
+          <label class="field-label">Nombre *</label>
+          <input class="field-input" type="text" id="ep_nombre" placeholder="Nombre de la sede"/>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Contacto *</label>
+          <input class="field-input" type="text" id="ep_contacto" placeholder="Teléfono o email"/>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Horario *</label>
+          <input class="field-input" type="text" id="ep_horario" placeholder="Ej: 8am - 6pm"/>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Departamento *</label>
+          <input class="field-input" type="text" id="ep_departamento" placeholder="Ej: Antioquia"/>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Ciudad *</label>
+          <input class="field-input" type="text" id="ep_ciudad" placeholder="Ej: Medellín"/>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Barrio *</label>
+          <input class="field-input" type="text" id="ep_barrio" placeholder="Ej: El Poblado"/>
+        </div>
+        <div class="field-group" style="grid-column:1/-1">
+          <label class="field-label">Dirección *</label>
+          <input class="field-input" type="text" id="ep_direccion" placeholder="Ej: Cra 43A # 1-50"/>
+        </div>
+      </div>
+      <div class="modal-alert" id="alertEditarPDV" style="margin-top:12px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="cerrarModalEditarPDV()">Cancelar</button>
+      <button class="btn-primary" id="btnEditarPDV" onclick="ejecutarEditarPDV()">
+        <span id="btnEditarPDVText">Guardar</span>
+        <span class="spinner" id="spinnerEditarPDV" style="display:none"></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALLE PDV -->
+<div class="modal-backdrop" id="modalDetallePDV">
+  <div class="modal-card" style="max-width:560px">
+    <div class="modal-header">
+      <div class="modal-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+      </div>
+      <h3 id="detallePDVTitulo">Detalle del PDV</h3>
+      <button class="modal-close" onclick="cerrarModalDetallePDV()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body" style="max-height:65vh;overflow-y:auto;gap:16px">
+      <p style="font-size:12px;font-weight:600;color:var(--text-3);
+                text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Empleados</p>
+      <div id="detalleEmpleados">
+        <div class="tabla-loading"><div class="tabla-spinner"></div><span>Cargando...</span></div>
+      </div>
+      <div style="height:1px;background:var(--border);margin:16px 0"></div>
+      <p style="font-size:12px;font-weight:600;color:var(--text-3);
+                text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Stock por Producto</p>
+      <div id="detalleStock">
+        <div class="tabla-loading"><div class="tabla-spinner"></div><span>Cargando...</span></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="cerrarModalDetallePDV()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  (function() {
+    var doc = '<?= sesionDocumento ?>';
+    var rol = '<?= sesionCodRol ?>';
+    if (doc && doc !== 'undefined' && doc !== '') {
+      sessionStorage.setItem('nexus_session', JSON.stringify({
+        documento: doc,
+        codRol:    rol
+      }));
+    }
+  })();
+</script>
+
+<?!= include('Scripts_Home'); ?>
+<?!= include('Scripts_Facturas'); ?>
+
+</body>
+</html>

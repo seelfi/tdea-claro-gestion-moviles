@@ -1,0 +1,331 @@
+<style>
+/* ==============================================================
+   FRONT-END STYLES: Estilos.html (Optimizado)
+   ============================================================== */
+
+* { box-sizing: border-box; }
+
+body, html {
+  margin: 0; padding: 0; height: 100%; width: 100%;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  overflow: hidden;
+}
+
+.main-wrapper { display: flex !important; flex-direction: row !important; width: 100vw; height: 100vh; }
+
+.split { height: 100vh; display: flex; align-items: center; justify-content: center; position: relative; }
+
+/* --- LADO IZQUIERDO --- */
+.left {
+  width: 45%;
+  background: white;
+  padding: 20px 40px;
+  overflow-y: auto;
+}
+
+.form-container {
+  width: 100%;
+  max-width: 380px;
+  margin: 0 auto;
+}
+
+.logo-tdea { width: 150px; margin: 0 auto 20px auto; display: block; animation: modernFade 3s ease-in-out infinite; }
+
+@keyframes modernFade {
+  0%, 100% { opacity: 1; transform: translateY(0); }
+  50% { opacity: 0.8; transform: translateY(-3px); }
+}
+
+/* --- LADO DERECHO --- */
+.right {
+  width: 55%; height: 100vh;
+  background-color: #000000;
+  background-size: contain;
+  background-position: right center;
+  background-repeat: no-repeat;
+  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.right.registro-mode {
+  background-image: none !important;
+  background: linear-gradient(135deg, #ef3340 0%, #000000 100%) !important;
+}
+
+/* --- FORMULARIO --- */
+.tabs { border-bottom: 1px solid #ddd; margin-bottom: 25px; display: flex; gap: 20px; }
+.tabs span { padding-bottom: 10px; font-size: 13px; cursor: pointer; color: #888; }
+.tabs .active { border-bottom: 3px solid #ef3340; color: #333; font-weight: bold; }
+
+.input-group { margin-bottom: 10px; text-align: left; }
+.input-group label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 5px; color: #333; }
+
+.input-group input, .custom-select {
+  width: 100%; padding: 8px 15px; border: 1px solid #ccc;
+  border-radius: 6px; font-size: 14px; outline: none;
+  transition: border-color 0.3s;
+}
+.input-group input:focus, .custom-select:focus { border-color: #ef3340; }
+
+#pass-feedback { display: block; margin-top: 5px; line-height: 1.4; color: #666; font-size: 11px; }
+
+.actions { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.btn-primary { background: #f2f2f2; color: #333; border: none; padding: 10px; border-radius: 25px; font-weight: bold; cursor: pointer; width: 100%; }
+.btn-secondary { background: #00768c; color: white; border: none; padding: 10px; border-radius: 25px; font-weight: bold; cursor: pointer; width: 100%; }
+.btn-primary:hover, .btn-secondary:hover { filter: brightness(0.9); }
+
+.text-success { color: #28a745 !important; font-weight: bold; }
+.text-danger { color: #dc3545 !important; }
+
+#campos-cliente {
+  background: #fdfdfd;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px dashed #ccc;
+  margin-bottom: 10px;
+}
+
+/* --- LOADER --- */
+.loader-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  color: white;
+}
+
+.loader-texto {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  margin: 0;
+}
+
+.spinner {
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  border-left-color: #ef3340;
+  border-radius: 50%;
+  width: 35px;
+  height: 35px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin { 100% { transform: rotate(360deg); } }
+
+.fade-out { opacity: 0; pointer-events: none; transition: opacity 0.5s ease; }
+
+/* --- INFO REGISTRO (panel derecho) --- */
+.info-registro {
+  display: none;
+  flex-direction: column;
+  gap: 20px;
+  padding: 40px;
+  color: white;
+  max-width: 420px;
+  animation: fadeSlideIn 0.5s ease forwards;
+}
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.info-registro__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.badge-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4cff91;
+  box-shadow: 0 0 8px #4cff91;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+.info-registro__titulo {
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  font-weight: 300;
+  margin: 0;
+  color: #fff;
+  line-height: 1.2;
+}
+
+.info-registro__titulo strong { font-weight: 700; }
+
+.info-registro__descripcion {
+  font-size: 15px;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.75);
+  margin: 0;
+  max-width: 36ch;
+}
+
+.info-registro__beneficios {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.info-registro__beneficios li {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.85);
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.info-registro__footer {
+  margin-top: auto;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+}
+
+/* --- INFO RECUPERAR (panel derecho) --- */
+.info-recuperar {
+  display: none;
+  flex-direction: column;
+  gap: 28px;
+  padding: 40px;
+  color: white;
+  max-width: 440px;
+  width: 100%;
+  animation: fadeSlideIn 0.5s ease forwards;
+}
+
+.info-recuperar__header {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.info-recuperar__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.info-recuperar__titulo {
+  font-size: clamp(1.6rem, 4vw, 2.2rem);
+  font-weight: 300;
+  margin: 0;
+  color: #fff;
+  line-height: 1.2;
+}
+
+.info-recuperar__titulo strong { font-weight: 700; }
+
+.info-recuperar__descripcion {
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.65);
+  margin: 0;
+}
+
+/* Pasos */
+.pasos-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.paso {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  position: relative;
+}
+
+.paso__icono {
+  font-size: 22px;
+  width: 48px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.3s;
+}
+
+.paso__contenido {
+  padding-bottom: 28px;
+  flex: 1;
+}
+
+.paso__numero {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.1em;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.paso__titulo {
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  margin: 0 0 4px 0;
+}
+
+.paso__desc {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Línea conectora entre pasos */
+.paso__linea {
+  position: absolute;
+  left: 23px;
+  top: 52px;
+  width: 2px;
+  height: calc(100% - 24px);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Paso activo */
+.paso.activo .paso__icono {
+  background: rgba(239, 51, 64, 0.3);
+  border-color: #ef3340;
+  box-shadow: 0 0 12px rgba(239, 51, 64, 0.4);
+}
+
+.paso.activo .paso__numero { color: #ef3340; }
+.paso.activo .paso__titulo { color: #fff; }
+
+/* Footer */
+.info-recuperar__footer {
+  margin-top: auto;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+}
+
+</style>

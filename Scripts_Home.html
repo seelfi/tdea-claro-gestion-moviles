@@ -1,0 +1,2228 @@
+<script>
+var SESSION = {
+  documento: null, nombre: null, rol: null,
+  codRol: null, cargo: null, codigoPDV: null, pdvNombre: null
+};
+
+var MENUS = {
+  1: [
+    { id: 'dashboard',       label: 'Dashboard',        icon: iconHome() },
+    { id: 'registrar-venta', label: 'Registrar Venta',  icon: iconPlus() },
+    { id: 'ventas',          label: 'Todas las Ventas', icon: iconChart() },
+    { id: 'inventario',      label: 'Inventario',       icon: iconBox() },
+    { id: 'empleados',       label: 'Empleados',        icon: iconUsers() },
+    { id: 'puntos-venta',    label: 'Puntos de Venta',  icon: iconStore() },
+    { id: 'facturas',        label: 'Facturas',         icon: iconFile() },
+    { id: 'metricas', label: 'Métricas', icon: iconMetricas() },
+  ],
+  2: [
+    { id: 'dashboard',       label: 'Dashboard',        icon: iconHome() },
+    { id: 'registrar-venta', label: 'Registrar Venta',  icon: iconPlus() },
+    { id: 'mis-ventas',      label: 'Mis Ventas',       icon: iconChart() },
+    { id: 'horario',         label: 'Mi Horario',       icon: iconCalendar() },
+    { id: 'facturas',        label: 'Mis Facturas',     icon: iconFile() },
+  ],
+  3: [
+  { id: 'dashboard',   label: 'Catálogo',   icon: iconHome()  },
+  { id: 'carrito',     label: 'Mi Carrito',  icon: iconCarrito()  },
+  { id: 'mis-compras', label: 'Mis Compras', icon: iconChart() }, // ← id cambiado
+  { id: 'perfil',      label: 'Mi Perfil',  icon: iconUser()  },
+  
+  ]
+};
+
+var ROL_LABELS = { 1: 'Administrador', 2: 'Vendedor', 3: 'Usuario' };
+
+function initApp() {
+  cargarSesion();
+  actualizarReloj();
+  setInterval(actualizarReloj, 1000);
+  var passNueva = document.getElementById('passNueva');
+  if (passNueva) passNueva.addEventListener('input', function() { evaluarFuerza(passNueva.value); });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
+
+function cargarSesion() {
+  var raw = sessionStorage.getItem('nexus_session');
+  if (!raw) { redirigirLogin(); return; }
+  try {
+    var data = JSON.parse(raw);
+    SESSION.documento = data.documento;
+    SESSION.codRol    = parseInt(data.codRol, 10) || 3;
+    SESSION.rol       = ROL_LABELS[SESSION.codRol] || 'Usuario';
+    actualizarHeader();
+    google.script.run.withSuccessHandler(onNombreEmpleado).withFailureHandler(function() {
+      SESSION.nombre = SESSION.documento; actualizarHeader();
+    }).obtenerNombreUsuario(SESSION.documento);
+    google.script.run.withSuccessHandler(onDatosLaborales).withFailureHandler(function(){}).obtenerDatosLaborales(SESSION.documento);
+    construirMenu(SESSION.codRol);
+    cargarLogoSidebar();
+    cargarProductos();
+  } catch(e) { redirigirLogin(); }
+}
+
+function onNombreEmpleado(resp) {
+  SESSION.nombre = (resp && resp.ok && resp.nombre) ? resp.nombre : SESSION.documento;
+  actualizarHeader();
+}
+
+function onDatosLaborales(resp) {
+  if (!resp || !resp.ok) return;
+  SESSION.cargo     = resp.cargo     || '';
+  SESSION.codigoPDV = resp.codigoPDV || '';
+  SESSION.pdvNombre = resp.pdvNombre || '';
+  if (resp.cargo) {
+    var roleEl = document.getElementById('userRole');
+    if (roleEl) roleEl.textContent = resp.cargo;
+  }
+}
+
+function actualizarHeader() {
+  var nombre   = SESSION.nombre;
+  var avatarEl = document.getElementById('userAvatar');
+  if (avatarEl) {
+    if (nombre && nombre !== SESSION.documento) {
+      avatarEl.innerHTML = '';
+      avatarEl.textContent = nombre.charAt(0).toUpperCase();
+    } else {
+      avatarEl.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+    }
+  }
+  var nameEl = document.getElementById('userName');
+  if (nameEl) nameEl.textContent = nombre || 'Cargando...';
+  var roleEl = document.getElementById('userRole');
+  if (roleEl) roleEl.textContent = SESSION.rol || '—';
+  var footerRoleEl = document.getElementById('footerRole');
+  if (footerRoleEl) footerRoleEl.textContent = SESSION.rol || '—';
+}
+
+function construirMenu(codRol) {
+  var items = MENUS[parseInt(codRol, 10)] || MENUS[3];
+  var nav   = document.getElementById('sidebarNav');
+  nav.innerHTML = '';
+  items.forEach(function(item, idx) {
+    var btn = document.createElement('button');
+    btn.className     = 'sidebar-item' + (idx === 0 ? ' active' : '');
+    btn.dataset.panel = item.id;
+    btn.dataset.label = item.label;
+    btn.setAttribute('title', item.label);
+    btn.innerHTML = '<span class="ink-icon">' + item.icon + '</span><span class="ink-label">' + item.label + '</span>';
+    btn.addEventListener('click', function() { navegarA(item.id); });
+    nav.appendChild(btn);
+  });
+}
+
+function navegarA(panelId) {
+  document.querySelectorAll('.sidebar-item').forEach(function(el) {
+    el.classList.toggle('active', el.dataset.panel === panelId);
+  });
+  document.querySelectorAll('.panel').forEach(function(p) {
+    p.classList.toggle('active', p.id === 'panel-' + panelId);
+  });
+  var labels = {
+    'dashboard':'Dashboard','perfil':'Mi Perfil','registrar-venta':'Registrar Venta',
+    'mis-ventas':'Mis Ventas','ventas':'Todas las Ventas','inventario':'Inventario',
+    'empleados':'Empleados','puntos-venta':'Puntos de Venta','facturas':'Facturas',
+    'horario':'Mi Horario',
+    'metricas': 'Métricas',
+    'carrito': 'Mi Carrito',
+  };
+  var titleEl = document.getElementById('topbarTitle');
+  if (titleEl) titleEl.textContent = labels[panelId] || panelId;
+  if (window.innerWidth <= 768) setSidebarMobile(false);
+  if (panelId === 'ventas') cargarTodasLasVentas();
+  if (panelId === 'inventario') cargarInventario();
+  if (panelId === 'empleados') cargarEmpleados();
+  if (panelId === 'puntos-venta') cargarPDVs();
+  if (panelId === 'facturas') cargarFacturas();
+  if (panelId === 'mis-ventas') cargarMisVentas();
+  if (panelId === 'horario') cargarMiHorario();
+  if (panelId === 'mis-compras') cargarMisCompras();
+  if (panelId === 'perfil') cargarMiPerfil();
+  if (panelId === 'carrito') cargarCarritoProductos();
+  if (panelId === 'registrar-venta') { limpiarVenta(); cargarIMEIsDisponibles(); }
+if (panelId === 'metricas') cargarMetricas();
+}
+
+var sidebarCollapsed = false;
+
+function toggleSidebar() {
+  if (window.innerWidth <= 768) {
+    var isOpen = document.getElementById('sidebar').classList.contains('mobile-open');
+    setSidebarMobile(!isOpen);
+  } else {
+    sidebarCollapsed = !sidebarCollapsed;
+    document.getElementById('sidebar').classList.toggle('collapsed', sidebarCollapsed);
+    document.getElementById('layout').classList.toggle('collapsed', sidebarCollapsed);
+  }
+}
+
+function setSidebarMobile(open) {
+  document.getElementById('sidebar').classList.toggle('mobile-open', open);
+  var overlay = document.getElementById('overlay');
+  overlay.classList.toggle('visible', open);
+  overlay.style.display = open ? 'block' : 'none';
+}
+
+function cargarProductos() {
+  google.script.run
+    .withSuccessHandler(renderProductos)
+    .withFailureHandler(function() {
+      var grid = document.getElementById('productGrid');
+      if (grid) grid.innerHTML = '<p style="color:var(--text-2);grid-column:1/-1;padding:20px 0">No se pudo cargar el catálogo.</p>';
+    })
+    .obtenerProductos();
+}
+
+function renderProductos(resp) {
+  var grid = document.getElementById('productGrid');
+  if (!grid) return;
+  if (!resp || !resp.ok || !resp.productos || resp.productos.length === 0) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--text-3)"><p style="font-size:15px">Sin productos disponibles</p></div>';
+    return;
+  }
+  grid.innerHTML = '';
+  resp.productos.forEach(function(p, idx) {
+    var card = document.createElement('div');
+    card.className = 'product-card';
+    card.style.animationDelay = (idx * 60) + 'ms';
+    var marca = detectarMarca(p.nombre);
+    var placeholderId = 'ph-' + idx;
+    var imgHtml = '';
+    if (p.imagenUrl) {
+      imgHtml = '<img src="' + escHtml(p.imagenUrl) + '" alt="' + escHtml(p.nombre) + '" class="product-img"'
+              + ' onload="this.style.opacity=\'1\';var ph=document.getElementById(\'' + placeholderId + '\');if(ph)ph.style.display=\'none\';"'
+              + ' onerror="this.style.display=\'none\';">';
+    }
+    card.innerHTML =
+      '<div class="product-thumb" style="background:' + marca.bg + '">'
+      + '<div class="product-thumb-placeholder" id="' + placeholderId + '">' + marca.svg + '<span class="product-marca-label">' + marca.label + '</span></div>'
+      + imgHtml
+      + '<span class="product-badge">Disponible</span>'
+      + '</div>'
+      + '<div class="product-body">'
+      + '<div class="product-codigo">Cód. ' + escHtml(p.codigo) + '</div>'
+      + '<div class="product-name">' + escHtml(p.nombre) + '</div>'
+      + '<div class="product-model">' + escHtml(p.modelo) + '</div>'
+      + '<div style="margin-top:auto"><div class="product-price-label">Precio</div><div class="product-price">' + formatCOP(p.precio) + '</div></div>'
+      + '</div>';
+    grid.appendChild(card);
+  });
+}
+
+function detectarMarca(nombre) {
+  var n = nombre.toLowerCase();
+  if (n.includes('samsung'))                        return { label:'Samsung',  bg:'#e8f4fd', svg:svgSamsung()  };
+  if (n.includes('iphone') || n.includes('apple')) return { label:'Apple',    bg:'#f5f5f7', svg:svgApple()    };
+  if (n.includes('xiaomi'))                         return { label:'Xiaomi',   bg:'#fff0f0', svg:svgXiaomi()   };
+  if (n.includes('motorola'))                       return { label:'Motorola', bg:'#f0f4ff', svg:svgMotorola() };
+  if (n.includes('huawei'))                         return { label:'Huawei',   bg:'#fff8e1', svg:svgHuawei()   };
+                                                    return { label:'Móvil',    bg:'#f4f4f4', svg:svgGenerico()  };
+}
+
+function svgSamsung()  { return '<svg viewBox="0 0 60 60" width="56" height="56" fill="none"><rect x="8" y="4" width="44" height="52" rx="6" fill="#1428A0" opacity="0.12"/><rect x="14" y="10" width="32" height="40" rx="4" fill="#1428A0" opacity="0.18"/><circle cx="30" cy="46" r="3" fill="#1428A0" opacity="0.3"/><rect x="22" y="7" width="16" height="3" rx="1.5" fill="#1428A0" opacity="0.2"/></svg>'; }
+function svgApple()    { return '<svg viewBox="0 0 60 60" width="56" height="56" fill="none"><rect x="10" y="4" width="40" height="52" rx="7" fill="#555" opacity="0.12"/><rect x="16" y="10" width="28" height="38" rx="3" fill="#555" opacity="0.15"/><circle cx="30" cy="47" r="2.5" fill="#555" opacity="0.25"/><rect x="24" y="6" width="12" height="2.5" rx="1.25" fill="#555" opacity="0.2"/></svg>'; }
+function svgXiaomi()   { return '<svg viewBox="0 0 60 60" width="56" height="56" fill="none"><rect x="9" y="4" width="42" height="52" rx="6" fill="#FF6900" opacity="0.12"/><rect x="15" y="10" width="30" height="40" rx="4" fill="#FF6900" opacity="0.18"/><circle cx="30" cy="46" r="3" fill="#FF6900" opacity="0.28"/></svg>'; }
+function svgMotorola() { return '<svg viewBox="0 0 60 60" width="56" height="56" fill="none"><rect x="9" y="4" width="42" height="52" rx="6" fill="#0057A6" opacity="0.12"/><rect x="15" y="10" width="30" height="40" rx="4" fill="#0057A6" opacity="0.18"/><circle cx="30" cy="30" r="8" fill="#0057A6" opacity="0.12"/><circle cx="30" cy="30" r="4" fill="#0057A6" opacity="0.18"/></svg>'; }
+function svgHuawei()   { return '<svg viewBox="0 0 60 60" width="56" height="56" fill="none"><rect x="9" y="4" width="42" height="52" rx="6" fill="#CF0A2C" opacity="0.12"/><rect x="15" y="10" width="30" height="40" rx="4" fill="#CF0A2C" opacity="0.18"/><circle cx="30" cy="46" r="3" fill="#CF0A2C" opacity="0.28"/></svg>'; }
+function svgGenerico() { return '<svg viewBox="0 0 60 60" width="56" height="56" fill="none"><rect x="10" y="4" width="40" height="52" rx="6" fill="#999" opacity="0.12"/><rect x="16" y="10" width="28" height="38" rx="3" fill="#999" opacity="0.15"/><circle cx="30" cy="46" r="2.5" fill="#999" opacity="0.25"/></svg>'; }
+
+function formatCOP(val) {
+  return '$ ' + (parseFloat(val) || 0).toLocaleString('es-CO');
+}
+
+function mostrarModalCambioPass() { limpiarCamposModal(); document.getElementById('modalCambioPass').classList.add('open'); }
+function cerrarModalCambioPass()  { document.getElementById('modalCambioPass').classList.remove('open'); limpiarCamposModal(); }
+function limpiarCamposModal() {
+  ['passActual','passNueva','passConfirmar'].forEach(function(id) { var el = document.getElementById(id); if (el) el.value = ''; });
+  var alerta = document.getElementById('modalAlert');
+  if (alerta) { alerta.className = 'modal-alert'; alerta.textContent = ''; }
+  var bar = document.getElementById('strengthBar'); if (bar) bar.style.width = '0';
+  var label = document.getElementById('strengthLabel'); if (label) label.textContent = '';
+}
+function evaluarFuerza(v) {
+  var score = 0;
+  if (v.length >= 8) score++; if (/[A-Z]/.test(v)) score++;
+  if (/[0-9]/.test(v)) score++; if (/[^A-Za-z0-9]/.test(v)) score++;
+  var bar = document.getElementById('strengthBar');
+  var label = document.getElementById('strengthLabel');
+  if (!bar || !label) return;
+  var colors = ['#e05555','#e8a20a','#0aace8','#22c55e'];
+  var labels = ['Débil','Regular','Buena','Fuerte'];
+  var widths = ['25%','50%','75%','100%'];
+  if (v.length === 0) { bar.style.width = '0'; label.textContent = ''; return; }
+  var i = Math.max(0, score - 1);
+  bar.style.width = widths[i]; bar.style.background = colors[i]; label.textContent = labels[i];
+}
+async function ejecutarCambioPass() {
+  var actual = document.getElementById('passActual').value.trim();
+  var nueva  = document.getElementById('passNueva').value;
+  var conf   = document.getElementById('passConfirmar').value;
+  if (!actual || !nueva || !conf) { mostrarAlertaModal('error','Completa todos los campos.'); return; }
+  var regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[$@$!%*?&+\-._])[A-Za-z\d$@$!%*?&+\-._]{10,}$/;
+  if (!regex.test(nueva)) { mostrarAlertaModal('error','Mínimo 10 caracteres: mayúscula, minúscula, número y símbolo.'); return; }
+  if (nueva !== conf) { mostrarAlertaModal('error','Las contraseñas no coinciden.'); return; }
+  var hashActual = await sha256(actual);
+  var hashNueva  = await sha256(nueva);
+  var btn = document.getElementById('btnCambiarPass');
+  var btnTxt = document.getElementById('btnCambiarPassText');
+  var spinner = document.getElementById('spinnerCambio');
+  btn.disabled = true; btnTxt.style.display = 'none'; spinner.style.display = 'inline-block';
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      btn.disabled = false; btnTxt.style.display = 'inline'; spinner.style.display = 'none';
+      if (resp && resp.ok) { mostrarAlertaModal('success','Contraseña cambiada. Cerrando sesión...'); setTimeout(redirigirLogin, 1800); }
+      else mostrarAlertaModal('error', resp.msg || 'Error al cambiar contraseña.');
+    })
+    .withFailureHandler(function() {
+      btn.disabled = false; btnTxt.style.display = 'inline'; spinner.style.display = 'none';
+      mostrarAlertaModal('error','Error de conexión.');
+    })
+    .cambiarPassword(SESSION.documento, hashActual, hashNueva);
+}
+function mostrarAlertaModal(tipo, msg) {
+  var el = document.getElementById('modalAlert');
+  if (!el) return;
+  el.className = 'modal-alert ' + tipo;
+  el.textContent = msg;
+}
+
+function confirmarCerrarSesion() { document.getElementById('modalLogout').classList.add('open'); }
+function cerrarModalLogout()     { document.getElementById('modalLogout').classList.remove('open'); }
+function ejecutarLogout()        { cerrarModalLogout(); redirigirLogin(); }
+
+function togglePass(id) {
+  var input = document.getElementById(id);
+  if (input) input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+function actualizarReloj() {
+  var el = document.getElementById('footerTime');
+  if (el) el.textContent = new Date().toLocaleTimeString('es-CO', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+}
+
+function mostrarToast(msg, tipo) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast toast-' + (tipo||'') + ' show';
+  setTimeout(function() { t.className = 'toast'; }, 3000);
+}
+
+async function sha256(msg) {
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
+  return Array.from(new Uint8Array(buf)).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+}
+
+function redirigirLogin() {
+  sessionStorage.removeItem('nexus_session');
+  google.script.run.withSuccessHandler(function(url) { window.top.location.href = url; }).getLoginUrl();
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function svgWrap(path) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">' + path + '</svg>'; }
+function iconHome()     { return svgWrap('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>'); }
+function iconPlus()     { return svgWrap('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'); }
+function iconChart()    { return svgWrap('<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>'); }
+function iconMetricas() { return svgWrap('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>'); }
+function iconCarrito() { return svgWrap('<path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>'); }
+function iconBox()      { return svgWrap('<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>'); }
+function iconUsers()    { return svgWrap('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'); }
+function iconStore()    { return svgWrap('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>'); }
+function iconFile()     { return svgWrap('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>'); }
+function iconSettings() { return svgWrap('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>'); }
+function iconCalendar() { return svgWrap('<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'); }
+function iconUser()     { return svgWrap('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'); }
+
+function cargarLogoSidebar() {
+  google.script.run
+    .withSuccessHandler(function(urls) {
+      if (urls && urls.logo) {
+        var wrap = document.getElementById('brandIconWrap');
+        if (wrap) wrap.innerHTML = '<img src="' + urls.logo + '" alt="Logo" style="width:32px;height:32px;object-fit:contain;border-radius:6px;">';
+      }
+    })
+    .obtenerImagenesMenu();
+}
+
+/* ══════════════════════════════════════════
+   REGISTRAR VENTA
+══════════════════════════════════════════ */
+var _ventaCliente  = null;
+var _ventaProducto = null;
+
+function buscarClienteVenta() {
+  var doc = document.getElementById('ventaDocCliente').value.trim();
+  if (!doc) { mostrarToast('Ingresa el documento del cliente', 'error'); return; }
+  document.getElementById('resultadoCliente').style.display = 'none';
+  _ventaCliente = null;
+  actualizarResumenVenta();
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      if (!resp.ok) { mostrarToast(resp.msg, 'error'); return; }
+      _ventaCliente = { documento: doc, nombre: resp.nombre, telefono: resp.telefono };
+      document.getElementById('clienteNombre').textContent = resp.nombre;
+      document.getElementById('clienteTel').textContent    = 'Tel: ' + resp.telefono;
+      document.getElementById('resultadoCliente').style.display = 'block';
+      actualizarResumenVenta();
+    })
+    .withFailureHandler(function() { mostrarToast('Error al buscar cliente', 'error'); })
+    .buscarCliente(doc);
+}
+
+function buscarIMEIVenta() {
+  var imei = document.getElementById('ventaIMEI').value.trim();
+  if (!imei) { mostrarToast('Ingresa el IMEI del equipo', 'error'); return; }
+  document.getElementById('resultadoProducto').style.display = 'none';
+  _ventaProducto = null;
+  actualizarResumenVenta();
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      if (!resp.ok) { mostrarToast(resp.msg, 'error'); return; }
+      _ventaProducto = resp;
+      document.getElementById('productoNombre').textContent  = resp.nombre;
+      document.getElementById('productoDetalle').textContent = resp.color + ' · ' + resp.storage + ' · ' + resp.pdvNombre;
+      document.getElementById('productoPrecio').textContent  = formatCOP(resp.precio);
+      document.getElementById('resultadoProducto').style.display = 'block';
+      actualizarResumenVenta();
+    })
+    .withFailureHandler(function() { mostrarToast('Error al buscar IMEI', 'error'); })
+    .buscarProductoPorIMEI(imei);
+}
+
+function actualizarResumenVenta() {
+  var resumen = document.getElementById('ventaResumen');
+  var actions = document.getElementById('ventaActions');
+  if (!_ventaCliente || !_ventaProducto) {
+    resumen.innerHTML = '<p style="color:var(--text-3);font-size:14px">Completa los pasos anteriores para ver el resumen.</p>';
+    actions.style.display = 'none';
+    return;
+  }
+  resumen.innerHTML =
+    '<div class="resumen-fila"><span>Cliente</span><strong>' + escHtml(_ventaCliente.nombre) + '</strong></div>' +
+    '<div class="resumen-fila"><span>Documento</span><strong>' + escHtml(_ventaCliente.documento) + '</strong></div>' +
+    '<div class="resumen-fila"><span>Producto</span><strong>' + escHtml(_ventaProducto.nombre) + '</strong></div>' +
+    '<div class="resumen-fila"><span>IMEI</span><strong>' + escHtml(_ventaProducto.imei) + '</strong></div>' +
+    '<div class="resumen-fila"><span>Color</span><strong>' + escHtml(_ventaProducto.color) + '</strong></div>' +
+    '<div class="resumen-fila resumen-total"><span>Total</span><strong>' + formatCOP(_ventaProducto.precio) + '</strong></div>';
+  actions.style.display = 'flex';
+}
+
+function confirmarVenta() {
+  if (!_ventaCliente || !_ventaProducto) return;
+  var btn = document.getElementById('btnConfirmarVenta');
+  var btnTxt = document.getElementById('btnVentaText');
+  var spinner = document.getElementById('spinnerVenta');
+  btn.disabled = true; btnTxt.style.display = 'none'; spinner.style.display = 'inline-block';
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      btn.disabled = false; btnTxt.style.display = 'inline'; spinner.style.display = 'none';
+      if (!resp.ok) { mostrarToast(resp.msg, 'error'); return; }
+      mostrarToast('✓ ' + resp.msg, 'ok');
+      document.getElementById('ventaResumen').innerHTML =
+        '<div class="resumen-exito"><div class="resumen-exito-icon">✓</div>' +
+        '<div class="resumen-exito-titulo">Venta registrada</div>' +
+        '<div class="resumen-fila"><span>Factura</span><strong>' + resp.numFactura + '</strong></div>' +
+        '<div class="resumen-fila"><span>Total</span><strong>' + formatCOP(resp.total) + '</strong></div>' +
+        '<div class="resumen-fila"><span>Fecha</span><strong>' + resp.fecha + '</strong></div></div>';
+      document.getElementById('ventaActions').style.display = 'none';
+      _ventaCliente = null; _ventaProducto = null;
+      setTimeout(function() { limpiarVenta(); cargarIMEIsDisponibles(); }, 3000);
+    })
+    .withFailureHandler(function() {
+      btn.disabled = false; btnTxt.style.display = 'inline'; spinner.style.display = 'none';
+      mostrarToast('Error de conexión', 'error');
+    })
+    .registrarVenta({
+      documentoCliente:  _ventaCliente.documento,
+      documentoEmpleado: SESSION.documento,
+      imei:              _ventaProducto.imei,
+      codRol:            SESSION.codRol
+    });
+}
+
+function limpiarVenta() {
+  _ventaCliente = null; _ventaProducto = null;
+  var docEl = document.getElementById('ventaDocCliente');
+  if (docEl) docEl.value = '';
+  var imeiManual = document.getElementById('ventaIMEI');
+  if (imeiManual) imeiManual.value = '';
+  ['resultadoCliente','resultadoProducto','ventaActions'].forEach(function(id) {
+    var el = document.getElementById(id); if (el) el.style.display = 'none';
+  });
+  // Resetear selector
+  var sel = document.getElementById('imeiSelect');
+  if (sel) sel.selectedIndex = 0;
+  // Ocultar fallback manual
+  var manualWrap = document.getElementById('imeiManualWrap');
+  if (manualWrap) manualWrap.style.display = 'none';
+  var toggleLink = document.getElementById('toggleManualIMEI');
+  if (toggleLink) toggleLink.textContent = 'Ingresar IMEI manualmente';
+  actualizarResumenVenta();
+}
+
+/* ══════════════════════════════════════════
+   TODAS LAS VENTAS
+══════════════════════════════════════════ */
+var _todasLasVentas = [];
+
+function cargarTodasLasVentas() {
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      var loading = document.getElementById('ventasLoading');
+      var tabla   = document.getElementById('tablaVentas');
+      var empty   = document.getElementById('ventasEmpty');
+      if (loading) loading.style.display = 'none';
+      if (!resp || !resp.ok || !resp.ventas || resp.ventas.length === 0) {
+        if (empty) empty.style.display = 'flex';
+        return;
+      }
+      _todasLasVentas = resp.ventas;
+      renderTablaVentas(_todasLasVentas);
+    })
+    .withFailureHandler(function() {
+      var loading = document.getElementById('ventasLoading');
+      var empty   = document.getElementById('ventasEmpty');
+      if (loading) loading.style.display = 'none';
+      if (empty)   empty.style.display   = 'flex';
+      mostrarToast('Error al cargar ventas', 'error');
+    })
+    .obtenerTodasLasVentas();
+}
+
+function renderTablaVentas(ventas) {
+  var tbody  = document.getElementById('tablaVentasBody');
+  var tabla  = document.getElementById('tablaVentas');
+  var empty  = document.getElementById('ventasEmpty');
+  var footer = document.getElementById('ventasFooter');
+  if (!ventas || ventas.length === 0) {
+    if (tabla)  tabla.style.display = 'none';
+    if (empty)  empty.style.display = 'flex';
+    if (footer) footer.textContent  = '';
+    return;
+  }
+  tbody.innerHTML = '';
+  ventas.forEach(function(v) {
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td><span class="id-badge">'    + escHtml(v.idVenta)       + '</span></td>' +
+      '<td><span class="factura-ref">' + escHtml(v.numeroFactura) + '</span></td>' +
+      '<td><span class="imei-text">'   + escHtml(v.imei)          + '</span></td>' +
+      '<td><span class="valor-venta">' + formatCOP(v.valorVenta)  + '</span></td>';
+    tbody.appendChild(tr);
+  });
+  if (tabla)  tabla.style.display  = 'table';
+  if (empty)  empty.style.display  = 'none';
+  if (footer) footer.textContent   = 'Total: ' + ventas.length + ' venta' + (ventas.length !== 1 ? 's' : '');
+}
+
+function filtrarTablaVentas() {
+  var q = document.getElementById('buscarVenta').value.toLowerCase().trim();
+  if (!q) { renderTablaVentas(_todasLasVentas); return; }
+  var filtradas = _todasLasVentas.filter(function(v) {
+    return v.idVenta.toLowerCase().includes(q) ||
+           v.numeroFactura.toLowerCase().includes(q) ||
+           v.imei.toLowerCase().includes(q);
+  });
+  renderTablaVentas(filtradas);
+}
+
+/* ══════════════════════════════════════════
+   INVENTARIO
+══════════════════════════════════════════ */
+var _inventarioData = [];
+
+function cargarInventario() {
+  document.getElementById('invLoading').style.display  = 'flex';
+  document.getElementById('tablaInventario').style.display = 'none';
+  document.getElementById('invEmpty').style.display    = 'none';
+
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      document.getElementById('invLoading').style.display = 'none';
+      if (!resp || !resp.ok || !resp.items.length) {
+        document.getElementById('invEmpty').style.display = 'flex';
+        return;
+      }
+      _inventarioData = resp.items;
+
+      // Poblar selector de sedes
+      var sel = document.getElementById('filtroPDV');
+      sel.innerHTML = '<option value="">Todas las sedes</option>';
+      resp.pdvs.forEach(function(p) {
+        var opt = document.createElement('option');
+        opt.value = p.codigo;
+        opt.textContent = p.nombre;
+        sel.appendChild(opt);
+      });
+
+      renderTablaInventario(_inventarioData, '');
+    })
+    .withFailureHandler(function() {
+      document.getElementById('invLoading').style.display = 'none';
+      document.getElementById('invEmpty').style.display   = 'flex';
+      mostrarToast('Error al cargar inventario', 'error');
+    })
+    .obtenerInventarioCompleto();
+}
+
+function renderTablaInventario(items, filtroPDV) {
+  var tbody  = document.getElementById('tablaInventarioBody');
+  var tabla  = document.getElementById('tablaInventario');
+  var empty  = document.getElementById('invEmpty');
+  var footer = document.getElementById('invFooter');
+
+  // Si hay filtro de PDV, filtrar sedes y excluir items sin stock en esa sede
+  var data = items;
+  if (filtroPDV) {
+    data = items.map(function(item) {
+      var sedesFiltradas = item.sedes.filter(function(s) {
+        return s.codPDV === filtroPDV;
+      });
+      if (!sedesFiltradas.length) return null;
+      return Object.assign({}, item, {
+        stockDisponible: sedesFiltradas[0].dispPDV,
+        stockVendido:    sedesFiltradas[0].vendPDV,
+        sedes:           sedesFiltradas
+      });
+    }).filter(Boolean);
+  }
+
+  if (!data.length) {
+    tabla.style.display = 'none';
+    empty.style.display = 'flex';
+    footer.textContent  = '';
+    return;
+  }
+
+  tbody.innerHTML = '';
+  data.forEach(function(item) {
+    var sedesHtml = item.sedes.map(function(s) {
+      var color = s.dispPDV === 0 ? '#e05555' : s.dispPDV <= 2 ? '#e8a20a' : '#059c52';
+      return '<span style="display:inline-block;background:' + color + '20;color:' + color +
+             ';border:1px solid ' + color + '40;border-radius:6px;padding:2px 8px;' +
+             'font-size:11px;margin:2px;">' + escHtml(s.pdvNombre) +
+             ' <strong>' + s.dispPDV + '</strong></span>';
+    }).join('');
+
+    var stockColor = item.stockDisponible === 0 ? '#e05555'
+                   : item.stockDisponible <= 2  ? '#e8a20a' : '#059c52';
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td><span class="id-badge">'    + escHtml(item.codInventario)  + '</span></td>' +
+      '<td><span class="id-badge">'    + escHtml(item.codProducto)    + '</span></td>' +
+      '<td style="font-weight:500">'   + escHtml(item.nombreProducto) + '</td>' +
+      '<td><span style="font-weight:700;color:' + stockColor + '">'
+                                       + item.stockDisponible + '</span></td>' +
+      '<td>'                           + item.stockVendido    + '</td>' +
+      '<td><span class="valor-venta">' + formatCOP(item.precioUnitario) + '</span></td>' +
+      '<td>'                           + sedesHtml            + '</td>';
+    tbody.appendChild(tr);
+  });
+
+  tabla.style.display  = 'table';
+  empty.style.display  = 'none';
+  footer.textContent   = 'Total: ' + data.length + ' producto' + (data.length !== 1 ? 's' : '');
+}
+
+function filtrarInventario() {
+  var q      = document.getElementById('buscarInventario').value.toLowerCase().trim();
+  var pdvFil = document.getElementById('filtroPDV').value;
+  var filtrados = _inventarioData.filter(function(item) {
+    if (!q) return true;
+    return item.codProducto.toLowerCase().includes(q) ||
+           item.nombreProducto.toLowerCase().includes(q) ||
+           item.codInventario.toLowerCase().includes(q);
+  });
+  renderTablaInventario(filtrados, pdvFil);
+}
+
+/* ══════════════════════════════════════════
+   EMPLEADOS
+══════════════════════════════════════════ */
+var _empleadosData = [];
+var _pdvsData      = [];
+
+function cargarEmpleados() {
+  document.getElementById('empLoading').style.display      = 'flex';
+  document.getElementById('tablaEmpleados').style.display  = 'none';
+  document.getElementById('empEmpty').style.display        = 'none';
+
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      document.getElementById('empLoading').style.display = 'none';
+      if (!resp || !resp.ok || !resp.empleados.length) {
+        document.getElementById('empEmpty').style.display = 'flex';
+        return;
+      }
+      _empleadosData = resp.empleados;
+      _pdvsData      = resp.pdvs;
+      renderTablaEmpleados(_empleadosData);
+    })
+    .withFailureHandler(function() {
+      document.getElementById('empLoading').style.display = 'none';
+      document.getElementById('empEmpty').style.display   = 'flex';
+      mostrarToast('Error al cargar empleados', 'error');
+    })
+    .obtenerEmpleados();
+}
+
+function renderTablaEmpleados(lista) {
+  var tbody  = document.getElementById('tablaEmpleadosBody');
+  var tabla  = document.getElementById('tablaEmpleados');
+  var empty  = document.getElementById('empEmpty');
+  var footer = document.getElementById('empFooter');
+
+  if (!lista.length) {
+    tabla.style.display = 'none';
+    empty.style.display = 'flex';
+    footer.textContent  = '';
+    return;
+  }
+
+  // ✅ Guardar mapa para acceder por documento sin JSON en onclick
+  window._empMap = {};
+  lista.forEach(function(emp) { window._empMap[emp.documento] = emp; });
+
+  tbody.innerHTML = '';
+  lista.forEach(function(emp) {
+    var estadoColor = emp.estado === 'Activo' ? '#059c52' : '#e05555';
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td style="font-weight:500">'   + escHtml(emp.nombre + ' ' + emp.apellido) + '</td>' +
+      '<td><span class="id-badge">'    + escHtml(emp.documento)  + '</span></td>' +
+      '<td>'                           + escHtml(emp.cargo)       + '</td>' +
+      '<td style="font-size:13px;color:var(--text-2)">' + escHtml(emp.correo) + '</td>' +
+      '<td><span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;' +
+           'font-weight:600;background:' + estadoColor + '20;color:' + estadoColor + '">' +
+           escHtml(emp.estado) + '</span></td>' +
+      '<td>'                           + escHtml(emp.pdvNombre)   + '</td>' +
+      '<td style="font-size:13px;color:var(--text-2)">' + escHtml(emp.ciudad) + '</td>' +
+      // ✅ Solo pasa el documento, sin JSON
+      '<td><button class="btn-ghost" style="padding:6px 12px;font-size:12px" ' +
+           'onclick="abrirModalEditarEmpleado(window._empMap[\'' + escHtml(emp.documento) + '\'])">Editar</button></td>';
+    tbody.appendChild(tr);
+  });
+
+  tabla.style.display = 'table';
+  empty.style.display = 'none';
+  footer.textContent  = 'Total: ' + lista.length + ' empleado' + (lista.length !== 1 ? 's' : '');
+}
+
+function filtrarEmpleados() {
+  var q      = document.getElementById('buscarEmpleado').value.toLowerCase().trim();
+  var estado = document.getElementById('filtroEstadoEmp').value;
+  var filtrados = _empleadosData.filter(function(emp) {
+    var matchQ = !q ||
+      (emp.nombre + ' ' + emp.apellido).toLowerCase().includes(q) ||
+      emp.documento.toLowerCase().includes(q) ||
+      emp.cargo.toLowerCase().includes(q);
+    var matchE = !estado || emp.estado === estado;
+    return matchQ && matchE;
+  });
+  renderTablaEmpleados(filtrados);
+}
+
+function abrirModalCrearEmpleado() {
+  ['ce_documento','ce_primerNombre','ce_segundoNombre','ce_primerApellido',
+   'ce_segundoApellido','ce_correo','ce_numContrato','ce_salario',
+   'ce_horIni','ce_horFin'].forEach(function(id) {
+    var el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('ce_fechaIngreso').value = new Date().toISOString().split('T')[0];
+  var alertEl = document.getElementById('alertCrearEmp');
+  alertEl.className = 'modal-alert'; alertEl.textContent = '';
+
+  var sel = document.getElementById('ce_codPDV');
+  sel.innerHTML = '<option value="">Cargando sedes...</option>';
+  sel.disabled = true;
+
+  document.getElementById('modalCrearEmpleado').classList.add('open');
+
+  function poblarPDVsCrear(pdvs) {
+    sel.innerHTML = '<option value="">Selecciona una sede</option>';
+    pdvs.forEach(function(p) {
+      var opt = document.createElement('option');
+      opt.value = p.codigo; opt.textContent = p.nombre;
+      sel.appendChild(opt);
+    });
+    sel.disabled = false;
+  }
+
+  if (_pdvsData && _pdvsData.length) {
+    poblarPDVsCrear(_pdvsData);
+  } else {
+    google.script.run
+      .withSuccessHandler(function(resp) {
+        if (resp && resp.ok) {
+          _pdvsData = resp.pdvs;
+          poblarPDVsCrear(_pdvsData);
+        } else {
+          sel.innerHTML = '<option value="">Error al cargar sedes</option>';
+          sel.disabled = false;
+        }
+      })
+      .withFailureHandler(function() {
+        sel.innerHTML = '<option value="">Error al cargar sedes</option>';
+        sel.disabled = false;
+      })
+      .obtenerPDVs();
+  }
+}  // ← cierre de abrirModalCrearEmpleado
+
+function cerrarModalCrearEmpleado() {
+  document.getElementById('modalCrearEmpleado').classList.remove('open');
+}
+
+function ejecutarCrearEmpleado() {
+  var datos = {
+    tipoDoc:        document.getElementById('ce_tipoDoc').value,
+    documento:      document.getElementById('ce_documento').value.trim(),
+    primerNombre:   document.getElementById('ce_primerNombre').value.trim(),
+    segundoNombre:  document.getElementById('ce_segundoNombre').value.trim(),
+    primerApellido: document.getElementById('ce_primerApellido').value.trim(),
+    segundoApellido:document.getElementById('ce_segundoApellido').value.trim(),
+    cargo:          document.getElementById('ce_cargo').value,
+    codPDV:         document.getElementById('ce_codPDV').value,
+    correo:         document.getElementById('ce_correo').value.trim(),
+    numContrato:    document.getElementById('ce_numContrato').value.trim(),
+    fechaIngreso:   document.getElementById('ce_fechaIngreso').value,
+    salario:        parseFloat(document.getElementById('ce_salario').value) || 0,
+    horIni:         document.getElementById('ce_horIni').value,
+    horFin:         document.getElementById('ce_horFin').value
+  };
+
+  // ✅ Validaciones individuales
+  if (!datos.documento)      { mostrarAlertaEmp('alertCrearEmp', 'error', 'El número de documento es obligatorio.');  return; }
+  if (!datos.primerNombre)   { mostrarAlertaEmp('alertCrearEmp', 'error', 'El primer nombre es obligatorio.');        return; }
+  if (!datos.primerApellido) { mostrarAlertaEmp('alertCrearEmp', 'error', 'El primer apellido es obligatorio.');      return; }
+  if (!datos.codPDV)         { mostrarAlertaEmp('alertCrearEmp', 'error', 'Debes seleccionar una sede.');             return; }
+  if (!datos.correo)         { mostrarAlertaEmp('alertCrearEmp', 'error', 'El correo empresarial es obligatorio.');   return; }
+  if (!datos.numContrato)    { mostrarAlertaEmp('alertCrearEmp', 'error', 'El número de contrato es obligatorio.');   return; }
+  if (!datos.fechaIngreso)   { mostrarAlertaEmp('alertCrearEmp', 'error', 'La fecha de ingreso es obligatoria.');     return; }
+  if (!datos.salario)        { mostrarAlertaEmp('alertCrearEmp', 'error', 'El salario base es obligatorio.');         return; }
+  if (!datos.horIni)         { mostrarAlertaEmp('alertCrearEmp', 'error', 'El horario de inicio es obligatorio.');    return; }
+  if (!datos.horFin)         { mostrarAlertaEmp('alertCrearEmp', 'error', 'El horario de fin es obligatorio.');       return; }
+
+  var btn = document.getElementById('btnCrearEmp');
+  var txt = document.getElementById('btnCrearEmpText');
+  var spn = document.getElementById('spinnerCrearEmp');
+  btn.disabled = true; txt.style.display = 'none'; spn.style.display = 'inline-block';
+
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      btn.disabled = false; txt.style.display = 'inline'; spn.style.display = 'none';
+      if (!resp.ok) { mostrarAlertaEmp('alertCrearEmp', 'error', resp.msg); return; }
+      mostrarToast('✓ ' + resp.msg, 'ok');
+      cerrarModalCrearEmpleado();
+      cargarEmpleados();
+    })
+    .withFailureHandler(function() {
+      btn.disabled = false; txt.style.display = 'inline'; spn.style.display = 'none';
+      mostrarAlertaEmp('alertCrearEmp', 'error', 'Error de conexión.');
+    })
+    .crearEmpleado(datos);
+}
+
+/* ── EDITAR ── */
+function abrirModalEditarEmpleado(emp) {
+  document.getElementById('ee_documento').value    = emp.documento;
+  document.getElementById('ee_nombreDisplay').textContent = emp.nombre + ' ' + emp.apellido;
+  document.getElementById('ee_cargo').value        = emp.cargo;
+  document.getElementById('ee_estado').value       = emp.estado;
+  document.getElementById('ee_correo').value       = emp.correo !== '—' ? emp.correo : '';
+  var alertEl = document.getElementById('alertEditarEmp');
+  alertEl.className = 'modal-alert'; alertEl.textContent = '';
+
+  // Poblar selector PDV
+  var sel = document.getElementById('ee_codPDV');
+  sel.innerHTML = '<option value="">Sin cambios</option>';
+  _pdvsData.forEach(function(p) {
+    var opt = document.createElement('option');
+    opt.value = p.codigo;
+    opt.textContent = p.nombre;
+    if (p.codigo === emp.codPDV) opt.selected = true;
+    sel.appendChild(opt);
+  });
+
+  document.getElementById('modalEditarEmpleado').classList.add('open');
+}
+
+function cerrarModalEditarEmpleado() {
+  document.getElementById('modalEditarEmpleado').classList.remove('open');
+}
+
+function ejecutarEditarEmpleado() {
+  var datos = {
+    documento: document.getElementById('ee_documento').value,
+    cargo:     document.getElementById('ee_cargo').value,
+    estado:    document.getElementById('ee_estado').value,
+    correo:    document.getElementById('ee_correo').value.trim(),
+    codPDV:    document.getElementById('ee_codPDV').value
+  };
+
+  var btn = document.getElementById('btnEditarEmp');
+  var txt = document.getElementById('btnEditarEmpText');
+  var spn = document.getElementById('spinnerEditarEmp');
+  btn.disabled = true; txt.style.display = 'none'; spn.style.display = 'inline-block';
+
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      btn.disabled = false; txt.style.display = 'inline'; spn.style.display = 'none';
+      if (!resp.ok) { mostrarAlertaEmp('alertEditarEmp', 'error', resp.msg); return; }
+      mostrarToast('✓ ' + resp.msg, 'ok');
+      cerrarModalEditarEmpleado();
+      cargarEmpleados();
+    })
+    .withFailureHandler(function() {
+      btn.disabled = false; txt.style.display = 'inline'; spn.style.display = 'none';
+      mostrarAlertaEmp('alertEditarEmp', 'error', 'Error de conexión.');
+    })
+    .actualizarEmpleado(datos);
+}
+
+function mostrarAlertaEmp(id, tipo, msg) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.className = 'modal-alert ' + tipo;
+  el.textContent = msg;
+}
+
+/* ══════════════════════════════════════════
+   PUNTOS DE VENTA
+══════════════════════════════════════════ */
+var _pdvsDataCompleto = [];
+
+function cargarPDVs() {
+  document.getElementById('pdvLoading').style.display  = 'flex';
+  document.getElementById('tablaPDVs').style.display   = 'none';
+  document.getElementById('pdvEmpty').style.display    = 'none';
+
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      document.getElementById('pdvLoading').style.display = 'none';
+      if (!resp || !resp.ok || !resp.pdvs.length) {
+        document.getElementById('pdvEmpty').style.display = 'flex';
+        return;
+      }
+      _pdvsDataCompleto = resp.pdvs;
+      // Guardar mapa global para acceso sin JSON en onclick
+      window._pdvMap = {};
+      _pdvsDataCompleto.forEach(function(p) { window._pdvMap[String(p.codigo)] = p; });
+      renderTablaPDVs(_pdvsDataCompleto);
+    })
+    .withFailureHandler(function() {
+      document.getElementById('pdvLoading').style.display = 'none';
+      document.getElementById('pdvEmpty').style.display   = 'flex';
+      mostrarToast('Error al cargar puntos de venta', 'error');
+    })
+    .obtenerPDVsCompleto();
+}
+
+function renderTablaPDVs(lista) {
+  var tbody  = document.getElementById('tablaPDVsBody');
+  var tabla  = document.getElementById('tablaPDVs');
+  var empty  = document.getElementById('pdvEmpty');
+  var footer = document.getElementById('pdvFooter');
+
+  if (!lista || !lista.length) {
+    tabla.style.display = 'none';
+    empty.style.display = 'flex';
+    footer.textContent  = '';
+    return;
+  }
+
+  tbody.innerHTML = '';
+  lista.forEach(function(p) {
+    var stockColor = p.stockTotal === 0 ? '#e05555'
+                   : p.stockTotal <= 5  ? '#e8a20a' : '#059c52';
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td><span class="id-badge">' + escHtml(String(p.codigo)) + '</span></td>' +
+      '<td style="font-weight:600">'  + escHtml(p.nombre)   + '</td>' +
+      '<td style="font-size:13px;color:var(--text-2)">' + escHtml(p.ciudad) + '</td>' +
+      '<td style="font-size:13px;color:var(--text-2)">' + escHtml(p.direccion) + '</td>' +
+      '<td style="font-size:13px">'   + escHtml(p.contacto) + '</td>' +
+      '<td style="font-size:13px">'   + escHtml(p.horario)  + '</td>' +
+      '<td style="text-align:center">' +
+        '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;' +
+        'font-weight:600;background:rgba(10,172,232,0.1);color:#0aace8">' +
+        p.empleados + '</span></td>' +
+      '<td style="text-align:center">' +
+        '<span style="font-weight:700;color:' + stockColor + '">' + p.stockTotal + '</span></td>' +
+      '<td>' +
+        '<div style="display:flex;gap:6px">' +
+        '<button class="btn-ghost" style="padding:5px 10px;font-size:12px" ' +
+          'onclick="abrirModalDetallePDV(window._pdvMap[\'' + escHtml(String(p.codigo)) + '\'])">Ver</button>' +
+        '<button class="btn-ghost" style="padding:5px 10px;font-size:12px" ' +
+          'onclick="abrirModalEditarPDV(window._pdvMap[\'' + escHtml(String(p.codigo)) + '\'])">Editar</button>' +
+        '</div></td>';
+    tbody.appendChild(tr);
+  });
+
+  tabla.style.display = 'table';
+  empty.style.display = 'none';
+  footer.textContent  = 'Total: ' + lista.length + ' sede' + (lista.length !== 1 ? 's' : '');
+}
+
+function filtrarPDVs() {
+  var q = document.getElementById('buscarPDV').value.toLowerCase().trim();
+  if (!q) { renderTablaPDVs(_pdvsDataCompleto); return; }
+  var filtrados = _pdvsDataCompleto.filter(function(p) {
+    return p.nombre.toLowerCase().includes(q) ||
+           p.ciudad.toLowerCase().includes(q) ||
+           p.direccion.toLowerCase().includes(q);
+  });
+  renderTablaPDVs(filtrados);
+}
+
+/* ── CREAR ── */
+function abrirModalCrearPDV() {
+  ['cp_nombre','cp_contacto','cp_horario','cp_ciudad','cp_barrio','cp_direccion']
+    .forEach(function(id) { var el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('cp_departamento').value = 'Antioquia';
+  var alertEl = document.getElementById('alertCrearPDV');
+  alertEl.className = 'modal-alert'; alertEl.textContent = '';
+  document.getElementById('modalCrearPDV').classList.add('open');
+}
+
+function cerrarModalCrearPDV() {
+  document.getElementById('modalCrearPDV').classList.remove('open');
+}
+
+function ejecutarCrearPDV() {
+  var datos = {
+    nombre:       document.getElementById('cp_nombre').value.trim(),
+    contacto:     document.getElementById('cp_contacto').value.trim(),
+    horario:      document.getElementById('cp_horario').value.trim(),
+    departamento: document.getElementById('cp_departamento').value.trim(),
+    ciudad:       document.getElementById('cp_ciudad').value.trim(),
+    barrio:       document.getElementById('cp_barrio').value.trim(),
+    direccion:    document.getElementById('cp_direccion').value.trim()
+  };
+
+  if (!datos.nombre || !datos.contacto || !datos.horario ||
+      !datos.departamento || !datos.ciudad || !datos.barrio || !datos.direccion) {
+    mostrarAlertaPDV('alertCrearPDV', 'error', 'Todos los campos son obligatorios.');
+    return;
+  }
+
+  if (!datos.nombre)       { mostrarAlertaPDV('alertCrearPDV', 'error', 'El nombre de la sede es obligatorio.');   return; }
+  if (!datos.contacto)     { mostrarAlertaPDV('alertCrearPDV', 'error', 'El contacto es obligatorio.');             return; }
+  if (!datos.horario)      { mostrarAlertaPDV('alertCrearPDV', 'error', 'El horario es obligatorio.');              return; }
+  if (!datos.departamento) { mostrarAlertaPDV('alertCrearPDV', 'error', 'El departamento es obligatorio.');         return; }
+  if (!datos.ciudad)       { mostrarAlertaPDV('alertCrearPDV', 'error', 'La ciudad es obligatoria.');               return; }
+  if (!datos.barrio)       { mostrarAlertaPDV('alertCrearPDV', 'error', 'El barrio es obligatorio.');               return; }
+  if (!datos.direccion)    { mostrarAlertaPDV('alertCrearPDV', 'error', 'La dirección es obligatoria.');            return; }
+
+  var btn = document.getElementById('btnCrearPDV');
+  var txt = document.getElementById('btnCrearPDVText');
+  var spn = document.getElementById('spinnerCrearPDV');
+  btn.disabled = true; txt.style.display = 'none'; spn.style.display = 'inline-block';
+
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      btn.disabled = false; txt.style.display = 'inline'; spn.style.display = 'none';
+      if (!resp.ok) { mostrarAlertaPDV('alertCrearPDV', 'error', resp.msg); return; }
+      mostrarToast('✓ ' + resp.msg, 'ok');
+      cerrarModalCrearPDV();
+      cargarPDVs();
+    })
+    .withFailureHandler(function() {
+      btn.disabled = false; txt.style.display = 'inline'; spn.style.display = 'none';
+      mostrarAlertaPDV('alertCrearPDV', 'error', 'Error de conexión.');
+    })
+    .crearPDV(datos);
+}
+
+/* ── EDITAR ── */
+function abrirModalEditarPDV(pdv) {
+  document.getElementById('ep_codigo').value          = pdv.codigo;
+  document.getElementById('ep_codigoDisplay').textContent = pdv.codigo;
+  document.getElementById('ep_nombre').value          = pdv.nombre;
+  document.getElementById('ep_contacto').value        = pdv.contacto !== '—' ? pdv.contacto : '';
+  document.getElementById('ep_horario').value         = pdv.horario  !== '—' ? pdv.horario  : '';
+  document.getElementById('ep_departamento').value    = pdv.departamento !== '—' ? pdv.departamento : '';
+  document.getElementById('ep_ciudad').value          = pdv.ciudad   !== '—' ? pdv.ciudad   : '';
+  document.getElementById('ep_barrio').value          = pdv.barrio   !== '—' ? pdv.barrio   : '';
+  document.getElementById('ep_direccion').value       = pdv.direccion !== '—' ? pdv.direccion : '';
+  var alertEl = document.getElementById('alertEditarPDV');
+  alertEl.className = 'modal-alert'; alertEl.textContent = '';
+  document.getElementById('modalEditarPDV').classList.add('open');
+}
+
+function cerrarModalEditarPDV() {
+  document.getElementById('modalEditarPDV').classList.remove('open');
+}
+
+function ejecutarEditarPDV() {
+  var datos = {
+    codigo:       document.getElementById('ep_codigo').value,
+    nombre:       document.getElementById('ep_nombre').value.trim(),
+    contacto:     document.getElementById('ep_contacto').value.trim(),
+    horario:      document.getElementById('ep_horario').value.trim(),
+    departamento: document.getElementById('ep_departamento').value.trim(),
+    ciudad:       document.getElementById('ep_ciudad').value.trim(),
+    barrio:       document.getElementById('ep_barrio').value.trim(),
+    direccion:    document.getElementById('ep_direccion').value.trim()
+  };
+
+  // ── Validación: todos los campos obligatorios ──
+  if (!datos.nombre || !datos.contacto || !datos.horario ||
+      !datos.departamento || !datos.ciudad || !datos.barrio || !datos.direccion) {
+    mostrarAlertaPDV('alertEditarPDV', 'error', 'Todos los campos son obligatorios.');
+    return;
+  }
+
+  if (!datos.nombre)       { mostrarAlertaPDV('alertEditarPDV', 'error', 'El nombre de la sede es obligatorio.');  return; }
+  if (!datos.contacto)     { mostrarAlertaPDV('alertEditarPDV', 'error', 'El contacto es obligatorio.');            return; }
+  if (!datos.horario)      { mostrarAlertaPDV('alertEditarPDV', 'error', 'El horario es obligatorio.');             return; }
+  if (!datos.departamento) { mostrarAlertaPDV('alertEditarPDV', 'error', 'El departamento es obligatorio.');        return; }
+  if (!datos.ciudad)       { mostrarAlertaPDV('alertEditarPDV', 'error', 'La ciudad es obligatoria.');              return; }
+  if (!datos.barrio)       { mostrarAlertaPDV('alertEditarPDV', 'error', 'El barrio es obligatorio.');              return; }
+  if (!datos.direccion)    { mostrarAlertaPDV('alertEditarPDV', 'error', 'La dirección es obligatoria.');           return; }
+
+  var btn = document.getElementById('btnEditarPDV');
+  var txt = document.getElementById('btnEditarPDVText');
+  var spn = document.getElementById('spinnerEditarPDV');
+  btn.disabled = true; txt.style.display = 'none'; spn.style.display = 'inline-block';
+
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      btn.disabled = false; txt.style.display = 'inline'; spn.style.display = 'none';
+      if (!resp.ok) { mostrarAlertaPDV('alertEditarPDV', 'error', resp.msg); return; }
+      mostrarToast('✓ ' + resp.msg, 'ok');
+      cerrarModalEditarPDV();
+      cargarPDVs();
+    })
+    .withFailureHandler(function() {
+      btn.disabled = false; txt.style.display = 'inline'; spn.style.display = 'none';
+      mostrarAlertaPDV('alertEditarPDV', 'error', 'Error de conexión.');
+    })
+    .actualizarPDV(datos);
+}
+
+/* ── DETALLE ── */
+function abrirModalDetallePDV(pdv) {
+  document.getElementById('detallePDVTitulo').textContent = pdv.nombre;
+  document.getElementById('detalleEmpleados').innerHTML =
+    '<div class="tabla-loading"><div class="tabla-spinner"></div><span>Cargando...</span></div>';
+  document.getElementById('detalleStock').innerHTML =
+    '<div class="tabla-loading"><div class="tabla-spinner"></div><span>Cargando...</span></div>';
+  document.getElementById('modalDetallePDV').classList.add('open');
+
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      if (!resp || !resp.ok) {
+        document.getElementById('detalleEmpleados').innerHTML =
+          '<p style="color:var(--text-3);font-size:13px">No se pudo cargar el detalle.</p>';
+        return;
+      }
+      renderDetalleEmpleados(resp.empleados);
+      renderDetalleStock(resp.stock);
+    })
+    .withFailureHandler(function() {
+      document.getElementById('detalleEmpleados').innerHTML =
+        '<p style="color:#e05555;font-size:13px">Error de conexión.</p>';
+    })
+    .obtenerDetallePDV(pdv.codigo);
+}
+
+function cerrarModalDetallePDV() {
+  document.getElementById('modalDetallePDV').classList.remove('open');
+}
+
+function renderDetalleEmpleados(empleados) {
+  var el = document.getElementById('detalleEmpleados');
+  if (!empleados || !empleados.length) {
+    el.innerHTML = '<p style="color:var(--text-3);font-size:13px;padding:8px 0">Sin empleados asignados.</p>';
+    return;
+  }
+  var html = '<div style="display:flex;flex-direction:column;gap:8px">';
+  empleados.forEach(function(e) {
+    var estadoColor = e.estado === 'Activo' ? '#059c52' : '#e05555';
+    html +=
+      '<div style="display:flex;align-items:center;justify-content:space-between;' +
+      'padding:10px 14px;background:var(--bg-3);border-radius:10px;font-size:13px">' +
+      '<div>' +
+        '<div style="font-weight:600;color:var(--text-1)">' + escHtml(e.nombre) + '</div>' +
+        '<div style="color:var(--text-3);font-size:12px">'  + escHtml(e.cargo)  + '</div>' +
+      '</div>' +
+      '<span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;' +
+      'background:' + estadoColor + '20;color:' + estadoColor + '">' + escHtml(e.estado) + '</span>' +
+      '</div>';
+  });
+  el.innerHTML = html + '</div>';
+}
+
+function renderDetalleStock(stock) {
+  var el = document.getElementById('detalleStock');
+  if (!stock || !stock.length) {
+    el.innerHTML = '<p style="color:var(--text-3);font-size:13px;padding:8px 0">Sin stock registrado.</p>';
+    return;
+  }
+  var html = '<div style="display:flex;flex-direction:column;gap:8px">';
+  stock.forEach(function(s) {
+    var color = s.disponible === 0 ? '#e05555' : s.disponible <= 2 ? '#e8a20a' : '#059c52';
+    html +=
+      '<div style="display:flex;align-items:center;justify-content:space-between;' +
+      'padding:10px 14px;background:var(--bg-3);border-radius:10px;font-size:13px">' +
+      '<div style="font-weight:500;color:var(--text-1)">' + escHtml(s.producto) + '</div>' +
+      '<div style="display:flex;gap:16px;align-items:center">' +
+        '<span style="font-size:12px;color:var(--text-3)">Disponible: ' +
+          '<strong style="color:' + color + '">' + s.disponible + '</strong></span>' +
+        '<span style="font-size:12px;color:var(--text-3)">Vendido: <strong>' + s.vendido + '</strong></span>' +
+      '</div>' +
+      '</div>';
+  });
+  el.innerHTML = html + '</div>';
+}
+
+/* ══════════════════════════════════════════
+   REGISTRAR EQUIPOS
+══════════════════════════════════════════ */
+var _equiposGenerados = [];
+
+// Datos fijos por producto (coinciden exactamente con data- en el select)
+var _PRODUCTO_META = {
+  '1': { tamano: '6.1"', peso: '0.16', garantia: '1 Año', prefijo: 'SN-S23-',  tac: '35467890' },
+  '2': { tamano: '6.1"', peso: '0.17', garantia: '1 Año', prefijo: 'SN-IP14-', tac: '35298760' },
+  '3': { tamano: '6.6"', peso: '0.18', garantia: '1 Año', prefijo: 'SN-RN12-', tac: '35812340' },
+  '4': { tamano: '6.5"', peso: '0.17', garantia: '1 Año', prefijo: 'SN-ME40-', tac: '35674120' },
+  '5': { tamano: '6.4"', peso: '0.19', garantia: '1 Año', prefijo: 'SN-SA54-', tac: '35963210' }
+};
+
+var _COLORES = ['Negro', 'Blanco', 'Verde', 'Azul', 'Gris', 'Dorado', 'Morado'];
+
+function abrirModalRegistrarEquipos() {
+  // Limpiar estado
+  _equiposGenerados = [];
+  document.getElementById('req_producto').value = '';
+  document.getElementById('req_pdv').value = '';
+  document.getElementById('req_cantidad').value = '';
+  document.getElementById('reqPaso1').style.display = 'block';
+  document.getElementById('reqPaso2').style.display = 'none';
+  document.getElementById('btnGenerarEquipos').style.display = 'inline-flex';
+  document.getElementById('btnConfirmarEquipos').style.display = 'none';
+  var a1 = document.getElementById('alertReqPaso1');
+  a1.className = 'modal-alert'; a1.textContent = '';
+
+  // Poblar selector de PDVs desde los datos ya cargados en inventario
+  var sel = document.getElementById('req_pdv');
+  sel.innerHTML = '<option value="">Selecciona una sede</option>';
+  // Reutiliza _pdvsDataCompleto si está disponible, si no usa _inventarioData pdvs
+  var pdvsFuente = (_pdvsDataCompleto && _pdvsDataCompleto.length)
+    ? _pdvsDataCompleto
+    : (_inventarioData.length ? [] : []);
+  if (_pdvsDataCompleto && _pdvsDataCompleto.length) {
+    _pdvsDataCompleto.forEach(function(p) {
+      var opt = document.createElement('option');
+      opt.value = p.codigo;
+      opt.textContent = p.nombre;
+      sel.appendChild(opt);
+    });
+  } else {
+    // Fallback: cargar PDVs desde backend
+    google.script.run
+      .withSuccessHandler(function(resp) {
+        if (!resp || !resp.ok) return;
+        resp.pdvs.forEach(function(p) {
+          var opt = document.createElement('option');
+          opt.value = p.codigo;
+          opt.textContent = p.nombre;
+          sel.appendChild(opt);
+        });
+      })
+      .obtenerPDVs();
+  }
+
+  document.getElementById('modalRegistrarEquipos').classList.add('open');
+}
+
+function cerrarModalRegistrarEquipos() {
+  document.getElementById('modalRegistrarEquipos').classList.remove('open');
+  _equiposGenerados = [];
+}
+
+// Genera IMEI con dígito verificador Luhn
+function generarIMEI(tac) {
+  var partial = tac + String(Math.floor(Math.random() * 999999)).padStart(6, '0');
+  // Calcular dígito Luhn
+  var sum = 0;
+  for (var i = 0; i < 14; i++) {
+    var d = parseInt(partial[i]);
+    if (i % 2 === 1) {
+      d *= 2;
+      if (d > 9) d -= 9;
+    }
+    sum += d;
+  }
+  var luhn = (10 - (sum % 10)) % 10;
+  return partial + luhn;
+}
+
+function generarSerial(prefijo, indice) {
+  return prefijo + String(indice).padStart(3, '0');
+}
+
+function colorAleatorio() {
+  return _COLORES[Math.floor(Math.random() * _COLORES.length)];
+}
+
+function generarVistaPrevia() {
+  var codProd  = document.getElementById('req_producto').value;
+  var codPDV   = document.getElementById('req_pdv').value;
+  var cantidad = parseInt(document.getElementById('req_cantidad').value);
+  var alertEl  = document.getElementById('alertReqPaso1');
+
+  alertEl.className = 'modal-alert'; alertEl.textContent = '';
+
+  if (!codProd) {
+    alertEl.className = 'modal-alert error'; alertEl.textContent = 'Selecciona un producto.'; return;
+  }
+  if (!codPDV) {
+    alertEl.className = 'modal-alert error'; alertEl.textContent = 'Selecciona una sede.'; return;
+  }
+  if (!cantidad || cantidad < 1 || cantidad > 50) {
+    alertEl.className = 'modal-alert error'; alertEl.textContent = 'La cantidad debe estar entre 1 y 50.'; return;
+  }
+
+  var meta = _PRODUCTO_META[codProd];
+  _equiposGenerados = [];
+
+  // Generar equipos asegurando IMEIs únicos en este lote
+  var imeisLote = {};
+  for (var i = 0; i < cantidad; i++) {
+    var imei;
+    var intentos = 0;
+    do {
+      imei = generarIMEI(meta.tac);
+      intentos++;
+    } while (imeisLote[imei] && intentos < 100);
+    imeisLote[imei] = true;
+
+    _equiposGenerados.push({
+      imei:     imei,
+      serial:   generarSerial(meta.prefijo, i + 1),
+      color:    colorAleatorio(),
+      tamano:   meta.tamano,
+      peso:     meta.peso,
+      garantia: meta.garantia
+    });
+  }
+
+  // Mostrar tabla de vista previa
+  var tbody = document.getElementById('tablaPreviewBody');
+  tbody.innerHTML = '';
+  _equiposGenerados.forEach(function(eq, idx) {
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td style="color:var(--text-3)">' + (idx + 1) + '</td>' +
+      '<td style="font-family:monospace;font-size:11px">' + escHtml(eq.imei) + '</td>' +
+      '<td style="font-size:11px">' + escHtml(eq.serial) + '</td>' +
+      '<td>' +
+        '<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;' +
+        'background:var(--bg-4);color:var(--text-2)">' + escHtml(eq.color) + '</span>' +
+      '</td>' +
+      '<td style="color:var(--text-2)">' + escHtml(eq.tamano) + '</td>';
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('reqPreviewCount').textContent = cantidad;
+  document.getElementById('reqPaso2').style.display = 'block';
+  document.getElementById('btnGenerarEquipos').style.display = 'none';
+  document.getElementById('btnConfirmarEquipos').style.display = 'inline-flex';
+
+  var a2 = document.getElementById('alertReqPaso2');
+  a2.className = 'modal-alert'; a2.textContent = '';
+}
+
+function regenerarEquipos() {
+  // Vuelve al paso 1 para ajustar si quiere
+  document.getElementById('reqPaso2').style.display = 'none';
+  document.getElementById('btnGenerarEquipos').style.display = 'inline-flex';
+  document.getElementById('btnConfirmarEquipos').style.display = 'none';
+  _equiposGenerados = [];
+}
+
+function confirmarRegistroEquipos() {
+  if (!_equiposGenerados.length) return;
+
+  var codProd = document.getElementById('req_producto').value;
+  var codPDV  = document.getElementById('req_pdv').value;
+  var btn     = document.getElementById('btnConfirmarEquipos');
+  var txt     = document.getElementById('btnConfirmarEqText');
+  var spn     = document.getElementById('spinnerEq');
+
+  btn.disabled = true; txt.style.display = 'none'; spn.style.display = 'inline-block';
+
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      btn.disabled = false; txt.style.display = 'inline'; spn.style.display = 'none';
+      if (!resp.ok) {
+        var a2 = document.getElementById('alertReqPaso2');
+        a2.className = 'modal-alert error'; a2.textContent = resp.msg;
+        return;
+      }
+      mostrarToast('✓ ' + resp.msg, 'ok');
+      cerrarModalRegistrarEquipos();
+      cargarInventario(); // refresca la tabla de inventario
+    })
+    .withFailureHandler(function() {
+      btn.disabled = false; txt.style.display = 'inline'; spn.style.display = 'none';
+      var a2 = document.getElementById('alertReqPaso2');
+      a2.className = 'modal-alert error'; a2.textContent = 'Error de conexión.';
+    })
+    .registrarEquipos({
+      codProducto: codProd,
+      codPDV:      codPDV,
+      equipos:     _equiposGenerados
+    });
+}
+
+function actualizarInfoProducto() {
+  // Reservada para mostrar metadata del producto seleccionado
+  // Actualmente sin implementación requerida
+}
+
+var _misVentasData = [];
+
+function cargarMisVentas() {
+  document.getElementById('misVentasLoading').style.display = 'flex';
+  document.getElementById('tablaMisVentas').style.display   = 'none';
+  document.getElementById('misVentasEmpty').style.display   = 'none';
+
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      document.getElementById('misVentasLoading').style.display = 'none';
+      if (!resp || !resp.ok || !resp.ventas.length) {
+        document.getElementById('misVentasEmpty').style.display = 'flex';
+        return;
+      }
+      _misVentasData = resp.ventas;
+      renderTablaMisVentas(_misVentasData);
+    })
+    .withFailureHandler(function() {
+      document.getElementById('misVentasLoading').style.display = 'none';
+      document.getElementById('misVentasEmpty').style.display   = 'flex';
+      mostrarToast('Error al cargar ventas', 'error');
+    })
+    .obtenerMisVentas(SESSION.documento);
+}
+
+function renderTablaMisVentas(lista) {
+  var tbody  = document.getElementById('tablaMisVentasBody');
+  var tabla  = document.getElementById('tablaMisVentas');
+  var empty  = document.getElementById('misVentasEmpty');
+  var footer = document.getElementById('misVentasFooter');
+
+  if (!lista || !lista.length) {
+    tabla.style.display = 'none';
+    empty.style.display = 'flex';
+    footer.textContent  = '';
+    return;
+  }
+
+  tbody.innerHTML = '';
+  lista.forEach(function(v) {
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td><span class="id-badge">'    + escHtml(v.idVenta)       + '</span></td>' +
+      '<td><span class="factura-ref">' + escHtml(v.numeroFactura) + '</span></td>' +
+      '<td><span class="imei-text">'   + escHtml(v.imei)          + '</span></td>' +
+      '<td><span class="valor-venta">' + formatCOP(v.valorVenta)  + '</span></td>';
+    tbody.appendChild(tr);
+  });
+
+  tabla.style.display = 'table';
+  empty.style.display = 'none';
+  footer.textContent  = 'Total: ' + lista.length + ' venta' + (lista.length !== 1 ? 's' : '');
+}
+
+function filtrarMisVentas() {
+  var q = document.getElementById('buscarMisVentas').value.toLowerCase().trim();
+  if (!q) { renderTablaMisVentas(_misVentasData); return; }
+  var filtradas = _misVentasData.filter(function(v) {
+    return v.numeroFactura.toLowerCase().includes(q) ||
+           v.imei.toLowerCase().includes(q);
+  });
+  renderTablaMisVentas(filtradas);
+}
+
+var _horarioIni = null;
+var _horarioFin = null;
+var _horarioInterval = null;
+
+function cargarMiHorario() {
+  document.getElementById('horarioLoading').style.display = 'flex';
+  document.getElementById('horarioCard').style.display    = 'none';
+  document.getElementById('horarioError').style.display   = 'none';
+
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      document.getElementById('horarioLoading').style.display = 'none';
+      if (!resp || !resp.ok) {
+        var err = document.getElementById('horarioError');
+        err.textContent = resp ? resp.msg : 'Error al cargar horario.';
+        err.style.display = 'block';
+        return;
+      }
+
+      _horarioIni = resp.horIni;
+      _horarioFin = resp.horFin;
+
+      document.getElementById('horarioIni').textContent = resp.horIni || '—';
+      document.getElementById('horarioFin').textContent = resp.horFin || '—';
+
+      var estadoColor = resp.estado === 'Activo' ? '#059c52' : '#e05555';
+      document.getElementById('horarioEstado').innerHTML =
+        '<span style="display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;' +
+        'font-weight:600;background:' + estadoColor + '20;color:' + estadoColor + '">' +
+        escHtml(resp.estado) + '</span>';
+
+      document.getElementById('horarioCard').style.display = 'block';
+
+      // Actualizar mensaje ahora y cada minuto
+      actualizarMensajeHorario();
+      if (_horarioInterval) clearInterval(_horarioInterval);
+      _horarioInterval = setInterval(actualizarMensajeHorario, 60000);
+    })
+    .withFailureHandler(function() {
+      document.getElementById('horarioLoading').style.display = 'none';
+      var err = document.getElementById('horarioError');
+      err.textContent = 'Error de conexión.';
+      err.style.display = 'block';
+    })
+    .obtenerMiHorario(SESSION.documento);
+}
+
+function actualizarMensajeHorario() {
+  if (!_horarioIni || !_horarioFin) return;
+
+  var ahora    = new Date();
+  var hAhora   = ahora.getHours();
+  var mAhora   = ahora.getMinutes();
+  var minAhora = hAhora * 60 + mAhora;
+
+  // Parsear "HH:MM" o "H:MM"
+  function parsearHora(str) {
+    var partes = String(str).trim().split(':');
+    return parseInt(partes[0]) * 60 + (parseInt(partes[1]) || 0);
+  }
+
+  var minIni = parsearHora(_horarioIni);
+  var minFin = parsearHora(_horarioFin);
+
+  var icono, texto;
+
+  if (minAhora < minIni) {
+    var diff = minIni - minAhora;
+    var horas = Math.floor(diff / 60);
+    var mins  = diff % 60;
+    var falta = horas > 0 ? horas + 'h ' + mins + 'min' : mins + ' min';
+    icono = '⏰';
+    texto = 'Tu turno inicia en ' + falta + '.';
+  } else if (minAhora >= minIni && minAhora < minFin) {
+    var restante = minFin - minAhora;
+    var hRest    = Math.floor(restante / 60);
+    var mRest    = restante % 60;
+    var quedan   = hRest > 0 ? hRest + 'h ' + mRest + 'min' : mRest + ' min';
+    icono = '✅';
+    texto = 'Estás en turno. Te quedan ' + quedan + ' para finalizar.';
+  } else {
+    icono = '🏁';
+    texto = 'Tu turno ha finalizado por hoy. ¡Hasta mañana!';
+  }
+
+  document.getElementById('horarioMensajeIcon').textContent  = icono;
+  document.getElementById('horarioMensajeTexto').textContent = texto;
+}
+
+var _misComprasData = [];
+
+function cargarMisCompras() {
+  document.getElementById('misComprasLoading').style.display = 'flex';
+  document.getElementById('tablaMisCompras').style.display   = 'none';
+  document.getElementById('misComprasEmpty').style.display   = 'none';
+
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      document.getElementById('misComprasLoading').style.display = 'none';
+      if (!resp || !resp.ok || !resp.ventas.length) {
+        document.getElementById('misComprasEmpty').style.display = 'flex';
+        return;
+      }
+      _misComprasData = resp.ventas;
+      renderTablaMisCompras(_misComprasData);
+    })
+    .withFailureHandler(function() {
+      document.getElementById('misComprasLoading').style.display = 'none';
+      document.getElementById('misComprasEmpty').style.display   = 'flex';
+      mostrarToast('Error al cargar compras', 'error');
+    })
+    .obtenerMisCompras(SESSION.documento);
+}
+
+function renderTablaMisCompras(lista) {
+  var tbody  = document.getElementById('tablaMisComprasBody');
+  var tabla  = document.getElementById('tablaMisCompras');
+  var empty  = document.getElementById('misComprasEmpty');
+  var footer = document.getElementById('misComprasFooter');
+  if (!lista || !lista.length) {
+    tabla.style.display = 'none'; empty.style.display = 'flex'; footer.textContent = ''; return;
+  }
+  tbody.innerHTML = '';
+  lista.forEach(function(v) {
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td><span class="id-badge">'    + escHtml(v.idVenta)       + '</span></td>' +
+      '<td><span class="factura-ref">' + escHtml(v.numeroFactura) + '</span></td>' +
+      '<td><span class="imei-text">'   + escHtml(v.imei)          + '</span></td>' +
+      '<td><span class="valor-venta">' + formatCOP(v.valorVenta)  + '</span></td>';
+    tbody.appendChild(tr);
+  });
+  tabla.style.display = 'table'; empty.style.display = 'none';
+  footer.textContent  = 'Total: ' + lista.length + ' compra' + (lista.length !== 1 ? 's' : '');
+}
+
+function filtrarMisCompras() {
+  var q = document.getElementById('buscarMisCompras').value.toLowerCase().trim();
+  if (!q) { renderTablaMisCompras(_misComprasData); return; }
+  var filtradas = _misComprasData.filter(function(v) {
+    return v.numeroFactura.toLowerCase().includes(q) || v.imei.toLowerCase().includes(q);
+  });
+  renderTablaMisCompras(filtradas);
+}
+
+function cargarMiPerfil() {
+  document.getElementById('perfilLoading').style.display = 'flex';
+  document.getElementById('perfilCard').style.display    = 'none';
+  document.getElementById('perfilError').style.display   = 'none';
+
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      document.getElementById('perfilLoading').style.display = 'none';
+      if (!resp || !resp.ok) {
+        var err = document.getElementById('perfilError');
+        err.textContent = resp ? resp.msg : 'Error al cargar perfil.';
+        err.style.display = 'block';
+        return;
+      }
+      var nombreCompleto = resp.nombre + ' ' + resp.apellido;
+      document.getElementById('perfilAvatar').textContent      = resp.nombre.charAt(0).toUpperCase();
+      document.getElementById('perfilNombreCompleto').textContent = nombreCompleto.trim();
+      document.getElementById('perfilDocDisplay').textContent  = resp.tipoDoc + ' · ' + resp.documento;
+      document.getElementById('perfilTelefono').value          = resp.telefono;
+      document.getElementById('perfilCorreo').value            = resp.correo;
+      var alerta = document.getElementById('perfilAlerta');
+      alerta.className = 'modal-alert'; alerta.textContent = '';
+      document.getElementById('perfilCard').style.display = 'block';
+    })
+    .withFailureHandler(function() {
+      document.getElementById('perfilLoading').style.display = 'none';
+      var err = document.getElementById('perfilError');
+      err.textContent = 'Error de conexión.';
+      err.style.display = 'block';
+    })
+    .obtenerMiPerfil(SESSION.documento);
+}
+
+function guardarPerfil() {
+  var telefono = document.getElementById('perfilTelefono').value.trim();
+  var correo   = document.getElementById('perfilCorreo').value.trim();
+  var alerta   = document.getElementById('perfilAlerta');
+
+  alerta.className = 'modal-alert'; alerta.textContent = '';
+
+  if (!telefono) { alerta.className = 'modal-alert error'; alerta.textContent = 'El teléfono es obligatorio.'; return; }
+  if (!correo)   { alerta.className = 'modal-alert error'; alerta.textContent = 'El correo es obligatorio.'; return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
+    alerta.className = 'modal-alert error'; alerta.textContent = 'Ingresa un correo válido.'; return;
+  }
+
+  var btn = document.getElementById('btnGuardarPerfil');
+  var txt = document.getElementById('btnGuardarPerfilText');
+  var spn = document.getElementById('spinnerPerfil');
+  btn.disabled = true; txt.style.display = 'none'; spn.style.display = 'inline-block';
+
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      btn.disabled = false; txt.style.display = 'inline'; spn.style.display = 'none';
+      if (!resp.ok) { alerta.className = 'modal-alert error'; alerta.textContent = resp.msg; return; }
+      alerta.className = 'modal-alert success'; alerta.textContent = '✓ ' + resp.msg;
+      mostrarToast('✓ Perfil actualizado', 'ok');
+    })
+    .withFailureHandler(function() {
+      btn.disabled = false; txt.style.display = 'inline'; spn.style.display = 'none';
+      alerta.className = 'modal-alert error'; alerta.textContent = 'Error de conexión.';
+    })
+    .actualizarMiPerfil(SESSION.documento, telefono, correo);
+}
+
+/* ══════════════════════════════════════════
+   CARRITO DE COMPRAS (rol 3)
+══════════════════════════════════════════ */
+var _carrito        = [];   // [{codProducto, nombre, precio, imei, color}]
+var _productoActivo = null; // producto seleccionado esperando IMEI
+
+function cargarCarritoProductos() {
+  var grid = document.getElementById('carritoProductosGrid');
+  if (!grid) return;
+  grid.innerHTML =
+    '<div class="product-skeleton"></div>' +
+    '<div class="product-skeleton"></div>' +
+    '<div class="product-skeleton"></div>';
+
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      if (!resp || !resp.ok || !resp.productos.length) {
+        grid.innerHTML = '<p style="color:var(--text-3);font-size:14px">Sin productos disponibles.</p>';
+        return;
+      }
+      grid.innerHTML = '';
+      resp.productos.forEach(function(p) {
+        var card = document.createElement('div');
+        card.style.cssText =
+          'background:var(--bg-2);border:1px solid var(--border);border-radius:14px;' +
+          'padding:16px;cursor:pointer;transition:box-shadow 0.2s,border-color 0.2s;';
+        card.onmouseover = function() {
+          this.style.boxShadow = '0 4px 16px rgba(0,0,0,0.10)';
+          this.style.borderColor = 'var(--accent)';
+        };
+        card.onmouseout = function() {
+          this.style.boxShadow = 'none';
+          this.style.borderColor = 'var(--border)';
+        };
+        card.innerHTML =
+          '<div style="font-size:11px;color:var(--text-3);margin-bottom:4px">Cód. ' + escHtml(p.codigo) + '</div>' +
+          '<div style="font-weight:700;font-size:15px;color:var(--text-1);margin-bottom:2px">' + escHtml(p.nombre) + '</div>' +
+          '<div style="font-size:12px;color:var(--text-3);margin-bottom:10px">' + escHtml(p.modelo) + '</div>' +
+          '<div style="font-family:\'Syne\',sans-serif;font-size:18px;font-weight:800;color:var(--accent);margin-bottom:12px">' + formatCOP(p.precio) + '</div>' +
+          '<button class="btn-primary" style="width:100%;font-size:13px;padding:8px">Agregar al carrito</button>';
+        card.querySelector('button').onclick = function(e) {
+          e.stopPropagation();
+          abrirSelectorIMEI(p);
+        };
+        grid.appendChild(card);
+      });
+    })
+    .withFailureHandler(function() {
+      grid.innerHTML = '<p style="color:#e05555;font-size:14px">Error al cargar productos.</p>';
+    })
+    .obtenerProductos();
+}
+
+function abrirSelectorIMEI(producto) {
+  _productoActivo = producto;
+  document.getElementById('selectorProductoNombre').textContent = producto.nombre + ' — ' + formatCOP(producto.precio);
+  document.getElementById('selectorIMEIs').innerHTML = '';
+  document.getElementById('selectorLoading').style.display = 'block';
+  document.getElementById('carritoSelectorWrap').style.display = 'block';
+
+  // Scroll suave al selector
+  document.getElementById('carritoSelectorWrap').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      document.getElementById('selectorLoading').style.display = 'none';
+      var container = document.getElementById('selectorIMEIs');
+      if (!resp || !resp.ok || !resp.disponibles.length) {
+        container.innerHTML = '<p style="color:var(--text-3);font-size:13px;padding:10px 0">No hay unidades disponibles para este producto.</p>';
+        return;
+      }
+      resp.disponibles.forEach(function(d) {
+        var btn = document.createElement('button');
+        btn.className = 'btn-ghost';
+        btn.style.cssText = 'width:100%;text-align:left;padding:10px 14px;border-radius:10px;' +
+          'display:flex;justify-content:space-between;align-items:center;font-size:13px;';
+        btn.innerHTML =
+          '<span style="font-family:monospace;color:var(--text-2)">' + escHtml(d.imei) + '</span>' +
+          '<span style="background:var(--bg-3);border-radius:20px;padding:2px 10px;font-size:11px;color:var(--text-2)">' + escHtml(d.color) + '</span>';
+        btn.onclick = function() { agregarAlCarrito(d.imei, d.color); };
+        container.appendChild(btn);
+      });
+    })
+    .withFailureHandler(function() {
+      document.getElementById('selectorLoading').style.display = 'none';
+      document.getElementById('selectorIMEIs').innerHTML =
+        '<p style="color:#e05555;font-size:13px">Error al cargar disponibilidad.</p>';
+    })
+    .obtenerIMEIsDisponibles(producto.codigo);
+}
+
+function cerrarSelectorIMEI() {
+  document.getElementById('carritoSelectorWrap').style.display = 'none';
+  _productoActivo = null;
+}
+
+function agregarAlCarrito(imei, color) {
+  if (!_productoActivo) return;
+
+  // No permitir el mismo IMEI dos veces
+  for (var i = 0; i < _carrito.length; i++) {
+    if (_carrito[i].imei === imei) {
+      mostrarToast('Este equipo ya está en el carrito', 'error');
+      return;
+    }
+  }
+
+  _carrito.push({
+    codProducto: _productoActivo.codigo,
+    nombre:      _productoActivo.nombre,
+    precio:      _productoActivo.precio,
+    imei:        imei,
+    color:       color
+  });
+
+  cerrarSelectorIMEI();
+  renderCarrito();
+  mostrarToast('✓ Agregado al carrito', 'ok');
+}
+
+function renderCarrito() {
+  var wrap    = document.getElementById('carritoItemsWrap');
+  var items   = document.getElementById('carritoItems');
+  var count   = document.getElementById('carritoCount');
+  var total   = document.getElementById('carritoTotal');
+  var btnComp = document.getElementById('btnComprarCarrito');
+
+  if (!_carrito.length) {
+    wrap.style.display    = 'none';
+    btnComp.style.display = 'none';
+    return;
+  }
+
+  wrap.style.display    = 'block';
+  btnComp.style.display = 'flex';
+  count.textContent     = _carrito.length;
+
+  var totalVal = 0;
+  items.innerHTML = '';
+  _carrito.forEach(function(item, idx) {
+    totalVal += item.precio;
+    var div = document.createElement('div');
+    div.style.cssText =
+      'display:flex;align-items:center;justify-content:space-between;' +
+      'background:var(--bg-2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;';
+    div.innerHTML =
+      '<div>' +
+        '<div style="font-weight:600;font-size:14px;color:var(--text-1)">' + escHtml(item.nombre) + '</div>' +
+        '<div style="font-size:12px;color:var(--text-3);margin-top:2px">' +
+          escHtml(item.color) + ' · <span style="font-family:monospace">' + escHtml(item.imei) + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:12px">' +
+        '<span style="font-family:\'Syne\',sans-serif;font-weight:700;color:var(--accent)">' + formatCOP(item.precio) + '</span>' +
+        '<button class="btn-ghost" style="padding:4px 8px;font-size:12px;color:#e05555" ' +
+          'onclick="quitarDelCarrito(' + idx + ')">✕</button>' +
+      '</div>';
+    items.appendChild(div);
+  });
+
+  total.textContent = formatCOP(totalVal);
+}
+
+function quitarDelCarrito(idx) {
+  _carrito.splice(idx, 1);
+  renderCarrito();
+  if (!_carrito.length) mostrarToast('Carrito vacío', '');
+}
+
+function vaciarCarrito() {
+  _carrito = [];
+  renderCarrito();
+}
+
+function procesarCompraCarrito() {
+  if (!_carrito.length) {
+    mostrarToast('El carrito está vacío', 'error');
+    return;
+  }
+
+  var btn = document.getElementById('btnComprarCarrito');
+  var txt = document.getElementById('btnComprarTexto');
+  var spn = document.getElementById('spinnerCarrito');
+  btn.disabled = true; txt.style.display = 'none'; spn.style.display = 'inline-block';
+
+  var payload = {
+    documentoCliente: SESSION.documento,
+    items: _carrito.map(function(item) {
+      return { codProducto: item.codProducto, imei: item.imei };
+    })
+  };
+
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      btn.disabled = false; txt.style.display = 'inline'; spn.style.display = 'none';
+      if (!resp.ok) { mostrarToast(resp.msg, 'error'); return; }
+
+      // Limpiar carrito y mostrar confirmación
+      _carrito = [];
+      renderCarrito();
+
+      // Mostrar resumen de compra
+      var itemsWrap = document.getElementById('carritoItemsWrap');
+      itemsWrap.style.display = 'block';
+      itemsWrap.innerHTML =
+        '<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:16px;' +
+        'padding:32px;text-align:center;max-width:420px">' +
+        '<div style="font-size:40px;margin-bottom:12px">✅</div>' +
+        '<div style="font-family:\'Syne\',sans-serif;font-size:20px;font-weight:800;color:var(--text-1);margin-bottom:8px">¡Compra exitosa!</div>' +
+        '<div style="font-size:14px;color:var(--text-2);margin-bottom:16px">' +
+          '<div>Factura: <strong>' + escHtml(resp.numFactura) + '</strong></div>' +
+          '<div>Total: <strong style="color:var(--accent)">' + formatCOP(resp.total) + '</strong></div>' +
+          '<div>Fecha: <strong>' + escHtml(resp.fecha) + '</strong></div>' +
+        '</div>' +
+        '<button class="btn-primary" onclick="navegarA(\'mis-compras\')" style="margin-top:8px">Ver mis compras</button>' +
+        '</div>';
+
+      mostrarToast('✓ ' + resp.msg, 'ok');
+    })
+    .withFailureHandler(function(err) {
+      btn.disabled = false; txt.style.display = 'inline'; spn.style.display = 'none';
+      mostrarToast('Error de conexión: ' + err.message, 'error');
+    })
+    .registrarVentaCliente(payload);
+}
+
+// ── Variables para destruir gráficos al recargar ──
+var _chartMes   = null;
+
+function cargarMetricas() {
+  document.getElementById('metricasLoading').style.display   = 'flex';
+  document.getElementById('metricasContenido').style.display = 'none';
+  document.getElementById('metricasError').style.display     = 'none';
+
+  if (!window.Chart) {
+    var s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js';
+    s.onload = function() { _fetchMetricas(); };
+    document.head.appendChild(s);
+  } else {
+    _fetchMetricas();
+  }
+}
+
+function _fetchMetricas() {
+  google.script.run
+    .withSuccessHandler(function(data) {
+
+      document.getElementById('metricasLoading').style.display   = 'none';
+      document.getElementById('metricasContenido').style.display = 'block';
+
+      if (!data.success) {
+        var err = document.getElementById('metricasError');
+        err.textContent   = 'Error: ' + data.msg;
+        err.style.display = 'block';
+        return;
+      }
+
+      var totalIngresos = data.resumen.total_ingresos;
+      var totalVentas   = data.resumen.total_ventas;
+
+      // ── KPIs ──
+      document.getElementById('mTotalVentas').textContent   = totalVentas;
+      document.getElementById('mTotalIngresos').textContent = formatCOP(totalIngresos);
+
+      // Mejor sede
+      if (data.ventasPorPDV && data.ventasPorPDV.length) {
+        var mejor = data.ventasPorPDV[0];
+        document.getElementById('mMejorSede').textContent     = mejor.pdv;
+        document.getElementById('mMejorSedeInfo').textContent =
+          formatCOP(mejor.ingresos) + ' · ' + mejor.ventas + ' venta' + (mejor.ventas !== 1 ? 's' : '');
+      }
+
+      // Producto top
+      if (data.topProductos && data.topProductos.length) {
+        var top = data.topProductos[0];
+        document.getElementById('mProductoTop').textContent     = top.Nombre_Producto;
+        document.getElementById('mProductoTopInfo').textContent =
+          top.unidades_vendidas + ' uds · ' + formatCOP(top.total);
+      }
+
+      // ── Gráfico barras — Ingresos por sede ──
+      var coloresSedes = ['#ef3340', '#0aace8', '#059c52', '#e8a20a', '#9b59b6'];
+
+      if (window._chartSedes) { window._chartSedes.destroy(); window._chartSedes = null; }
+      window._chartSedes = new Chart(document.getElementById('chartSedes'), {
+        type: 'bar',
+        data: {
+          labels:   data.ventasPorPDV.map(function(r) { return r.pdv; }),
+          datasets: [{
+            label:           'Ingresos',
+            data:            data.ventasPorPDV.map(function(r) { return r.ingresos; }),
+            backgroundColor: data.ventasPorPDV.map(function(_, idx) {
+              return coloresSedes[idx] || '#ef3340';
+            }),
+            borderRadius:  6,
+            borderSkipped: false
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(c) {
+                  var r = data.ventasPorPDV[c.dataIndex];
+                  return ' ' + formatCOP(c.parsed.x) + '  ·  ' + r.ventas + ' venta' + (r.ventas !== 1 ? 's' : '');
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: {
+                color: '#888',
+                font: { size: 11 },
+                callback: function(v) { return '$ ' + (v / 1000000).toFixed(1) + 'M'; }
+              },
+              grid: { color: 'rgba(128,128,128,0.08)' }
+            },
+            y: {
+              ticks: { color: '#888', font: { size: 11 } },
+              grid:  { display: false }
+            }
+          }
+        }
+      });
+
+      // Insight sede
+      if (data.ventasPorPDV.length >= 2) {
+        var pctTop = totalIngresos > 0
+          ? Math.round((data.ventasPorPDV[0].ingresos / totalIngresos) * 100)
+          : 0;
+        document.getElementById('mSedesInsight').innerHTML =
+          escHtml(data.ventasPorPDV[0].pdv) +
+          ' representa el <strong style="color:var(--text-1)">' + pctTop + '%</strong> de los ingresos totales';
+      }
+
+      // ── Productos más vendidos ──
+      var prodWrap = document.getElementById('mProductosWrap');
+      prodWrap.innerHTML = '';
+      data.topProductos.forEach(function(r, idx) {
+        prodWrap.innerHTML +=
+          '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">' +
+            '<span style="font-size:11px;color:var(--text-3);min-width:20px">#' + (idx + 1) + '</span>' +
+            '<span style="font-size:13px;color:var(--text-1);flex:1;padding:0 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(r.Nombre_Producto) + '</span>' +
+            '<span style="font-size:11px;padding:2px 8px;border-radius:8px;background:var(--bg-3);color:var(--text-2);white-space:nowrap">' +
+              r.unidades_vendidas + ' uds · ' + formatCOP(r.total) +
+            '</span>' +
+          '</div>';
+      });
+
+      // Insight productos
+      if (data.topProductos.length >= 2) {
+        var top2    = data.topProductos[0].total + data.topProductos[1].total;
+        var pctTop2 = totalIngresos > 0 ? Math.round((top2 / totalIngresos) * 100) : 0;
+        document.getElementById('mProductosInsight').innerHTML =
+          'Los 2 productos top generan el <strong style="color:var(--text-1)">' + pctTop2 + '%</strong> de los ingresos';
+      }
+
+      // ── Gráfico línea — Evolución mensual ──
+      if (_chartMes) { _chartMes.destroy(); _chartMes = null; }
+      _chartMes = new Chart(document.getElementById('chartMes'), {
+        type: 'line',
+        data: {
+          labels:   data.ventasPorMes.map(function(r) { return r.mes; }),
+          datasets: [{
+            label:                'Ingresos',
+            data:                 data.ventasPorMes.map(function(r) { return r.ingresos; }),
+            borderColor:          '#ef3340',
+            backgroundColor:      'rgba(239,51,64,0.08)',
+            fill:                 true,
+            tension:              0.4,
+            pointBackgroundColor: '#ef3340',
+            pointRadius:          6,
+            borderWidth:          2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(c) { return ' ' + formatCOP(c.parsed.y); }
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color: '#888', font: { size: 11 } },
+              grid:  { color: 'rgba(128,128,128,0.08)' }
+            },
+            y: {
+              ticks: {
+                color: '#888',
+                font: { size: 11 },
+                callback: function(v) { return '$ ' + (v / 1000000).toFixed(1) + 'M'; }
+              },
+              grid: { color: 'rgba(128,128,128,0.08)' }
+            }
+          }
+        }
+      });
+
+      // Insight mes
+      if (data.ventasPorMes.length >= 2) {
+        var ultimo = data.ventasPorMes[data.ventasPorMes.length - 1];
+        var penult = data.ventasPorMes[data.ventasPorMes.length - 2];
+        var crec   = penult.ingresos > 0
+          ? Math.round(((ultimo.ingresos - penult.ingresos) / penult.ingresos) * 100)
+          : 0;
+        var color  = crec >= 0 ? '#059c52' : '#e05555';
+        var signo  = crec >= 0 ? '+' : '';
+        document.getElementById('mMesInsight').innerHTML =
+          'Crecimiento de <strong style="color:' + color + '">' + signo + crec + '%</strong> entre ' + penult.mes + ' y ' + ultimo.mes;
+      }
+
+      // ── Estado del stock ──
+      var stockWrap = document.getElementById('mStockWrap');
+      stockWrap.innerHTML = '';
+      data.stock.forEach(function(r) {
+        var total   = r.Stock_General_Disponible + r.Stock_General_Vendido;
+        var pctDisp = total > 0 ? Math.round((r.Stock_General_Disponible / total) * 100) : 100;
+        var pctVend = 100 - pctDisp;
+        var nombre  = r.Nombre_Producto
+          .replace('Samsung Galaxy ', 'Samsung ')
+          .replace('Xiaomi Redmi ',   'Xiaomi ');
+        stockWrap.innerHTML +=
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:9px">' +
+            '<span style="font-size:12px;color:var(--text-1);min-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(nombre) + '</span>' +
+            '<div style="flex:1;display:flex;gap:2px;height:16px;border-radius:4px;overflow:hidden">' +
+              '<div style="width:' + pctDisp + '%;background:#059c52"></div>' +
+              '<div style="width:' + pctVend + '%;background:#ef3340"></div>' +
+            '</div>' +
+            '<span style="font-size:11px;color:var(--text-3);min-width:44px;text-align:right">' +
+              r.Stock_General_Disponible + ' / ' + r.Stock_General_Vendido +
+            '</span>' +
+          '</div>';
+      });
+
+    })
+    .withFailureHandler(function(e) {
+      document.getElementById('metricasLoading').style.display   = 'none';
+      document.getElementById('metricasContenido').style.display = 'block';
+      var err = document.getElementById('metricasError');
+      err.textContent   = 'Error de conexión: ' + e.message;
+      err.style.display = 'block';
+    })
+    .consultarMetricasAzure();
+}
+
+/* ══════════════════════════════════════════
+   SELECTOR DE IMEIs POR PDV
+══════════════════════════════════════════ */
+function cargarIMEIsDisponibles() {
+  var sel     = document.getElementById('imeiSelect');
+  var loading = document.getElementById('imeiSelectLoading');
+  if (!sel || !loading) return;
+
+  sel.style.display     = 'none';
+  loading.style.display = 'flex';
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      loading.style.display = 'none';
+      sel.innerHTML = '<option value="">— Selecciona un equipo —</option>';
+
+      if (!res.ok || !res.items || res.items.length === 0) {
+        var opt = document.createElement('option');
+        opt.disabled = true;
+        opt.textContent = 'Sin equipos disponibles en tu sede';
+        sel.appendChild(opt);
+        sel.style.display = 'block';
+        return;
+      }
+
+      // Agrupar por nombre de producto
+      var grupoActual = '';
+      res.items.forEach(function(item) {
+        if (item.nombre !== grupoActual) {
+          grupoActual = item.nombre;
+          var sep = document.createElement('option');
+          sep.disabled = true;
+          sep.textContent = '── ' + item.nombre + ' ──';
+          sel.appendChild(sep);
+        }
+        var opt = document.createElement('option');
+        opt.value           = item.imei;
+        opt.dataset.nombre  = item.nombre;
+        opt.dataset.precio  = item.precio;
+        opt.dataset.color   = item.color;
+        opt.dataset.storage = item.storage || '';
+        opt.textContent     =
+          item.color +
+          (item.storage ? ' · ' + item.storage : '') +
+          '  —  ' + formatCOP(item.precio) +
+          '  (IMEI: ' + item.imei + ')';
+        sel.appendChild(opt);
+      });
+
+      sel.style.display = 'block';
+    })
+    .withFailureHandler(function() {
+      loading.style.display = 'none';
+      var sel = document.getElementById('imeiSelect');
+      if (sel) {
+        sel.innerHTML = '<option value="">Error al cargar equipos</option>';
+        sel.style.display = 'block';
+      }
+    })
+    .obtenerIMEIsDisponiblesPorPDV(SESSION.documento);
+}
+
+function onIMEISelectChange() {
+  var sel  = document.getElementById('imeiSelect');
+  var imei = sel ? sel.value : '';
+
+  if (!imei) {
+    document.getElementById('resultadoProducto').style.display = 'none';
+    _ventaProducto = null;
+    actualizarResumenVenta();
+    return;
+  }
+
+  var opt = sel.options[sel.selectedIndex];
+  _ventaProducto = {
+    imei:    imei,
+    nombre:  opt.dataset.nombre  || '',
+    precio:  parseFloat(opt.dataset.precio) || 0,
+    color:   opt.dataset.color   || '',
+    storage: opt.dataset.storage || '',
+    // pdvNombre no disponible en selector pero no bloquea el registro
+    pdvNombre: SESSION.pdvNombre || ''
+  };
+
+  document.getElementById('productoNombre').textContent  = _ventaProducto.nombre;
+  document.getElementById('productoDetalle').textContent =
+    _ventaProducto.color + (_ventaProducto.storage ? ' · ' + _ventaProducto.storage : '');
+  document.getElementById('productoPrecio').textContent  = formatCOP(_ventaProducto.precio);
+  document.getElementById('resultadoProducto').style.display = 'block';
+
+  actualizarResumenVenta();
+}
+
+function toggleIMEIManual(e) {
+  e.preventDefault();
+  var wrap = document.getElementById('imeiManualWrap');
+  var link = document.getElementById('toggleManualIMEI');
+  if (!wrap) return;
+  var abierto = wrap.style.display !== 'none';
+  wrap.style.display = abierto ? 'none' : 'block';
+  link.textContent   = abierto ? 'Ingresar IMEI manualmente' : 'Ocultar IMEI manual';
+}
+
+</script>

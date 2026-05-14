@@ -1,0 +1,450 @@
+<script>
+// 1. CARGA INICIAL DE IMÁGENES
+function cargarImagenes() {
+  google.script.run
+    .withSuccessHandler(function(urls) {
+      const imgLogo = document.querySelector('.logo-tdea');
+      const divDerecha = document.getElementById('img-derecha');
+      const loader = document.getElementById('loader-imagen');
+      if (urls.logo && imgLogo) imgLogo.src = urls.logo;
+      if (urls.screenshot && divDerecha) {
+        divDerecha.style.backgroundImage = "url('" + urls.screenshot + "')";
+        if(loader) loader.classList.add('fade-out');
+      }
+    })
+    .obtenerImagenesMenu();
+}
+
+document.addEventListener('DOMContentLoaded', cargarImagenes);
+
+// 2. NAVEGACIÓN Y MODOS VISUALES
+function mostrarSeccionLogin() {
+  limpiarFormularios(); // ← agregar
+  ocultarTodasSecciones();
+  document.getElementById('section-login').style.display = 'block';
+  const divDerecha = document.getElementById('img-derecha');
+  const infoRegistro = document.getElementById('info-registro');
+  if(divDerecha) divDerecha.classList.remove('registro-mode');
+  if(infoRegistro) infoRegistro.style.display = 'none';
+  const infoRecuperar = document.getElementById('info-recuperar');
+if(infoRecuperar) infoRecuperar.style.display = 'none';
+}
+
+function mostrarSeccionRegistro() {
+  limpiarFormularios(); // ← agregar
+  ocultarTodasSecciones();
+  document.getElementById('section-registro').style.display = 'block';
+  const divDerecha = document.getElementById('img-derecha');
+  const infoRegistro = document.getElementById('info-registro');
+  if(divDerecha) divDerecha.classList.add('registro-mode');
+  if(infoRegistro) infoRegistro.style.display = 'flex'; // ← FIX: era 'block'
+  verificarRolCliente(document.getElementById('rol-registro').value);
+}
+
+function mostrarSeccionRecuperar() {
+  limpiarFormularios(); // ← agregar
+  ocultarTodasSecciones();
+  document.getElementById('section-recuperar').style.display = 'block';
+  document.getElementById('recuperar-paso-1').style.display = 'block';
+  document.getElementById('recuperar-paso-2').style.display = 'none';
+
+  const divDerecha = document.getElementById('img-derecha');
+  const infoRegistro = document.getElementById('info-registro');
+  const infoRecuperar = document.getElementById('info-recuperar');
+
+  if(divDerecha) divDerecha.classList.add('registro-mode');
+  if(infoRegistro) infoRegistro.style.display = 'none';
+  if(infoRecuperar) infoRecuperar.style.display = 'flex';
+
+  resaltarPasoRecuperar(1); // empieza en paso 1
+}
+
+function resaltarPasoRecuperar(numeroPaso) {
+  document.querySelectorAll('.paso').forEach((el, i) => {
+    el.classList.toggle('activo', i + 1 === numeroPaso);
+  });
+}
+
+function ocultarTodasSecciones() {
+  document.querySelectorAll('.form-section').forEach(sec => sec.style.display = 'none');
+}
+
+// 3. LÓGICA DE FORMULARIO DINÁMICO
+function verificarRolCliente(rol) {
+  const camposCliente = document.getElementById('campos-cliente');
+  const campoCorreo   = document.getElementById('correo-registro').closest('.input-group');
+
+  if (rol === "3") {
+    // Cliente: mostrar datos personales y correo
+    camposCliente.style.display = 'block';
+    if (campoCorreo) campoCorreo.style.display = 'block';
+  } else {
+    // Empleado/Admin: no pedir datos personales ni correo
+    // (ya están registrados por el admin)
+    camposCliente.style.display = 'none';
+    if (campoCorreo) campoCorreo.style.display = 'none';
+  }
+}
+
+function validarClaveEnTiempoReal(pass) {
+  const feedback = document.getElementById('pass-feedback');
+  const btn = document.getElementById('btn-registrar-final');
+  const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[$@$!%*?&+-._])[A-Za-z\d$@$!%*?&+-._]{10,}$/;
+  
+  if (regex.test(pass)) {
+    feedback.innerText = "¡Contraseña segura!";
+    feedback.className = "text-success";
+    btn.disabled = false;
+    btn.style.opacity = "1";
+    btn.style.cursor = "pointer";
+  } else {
+    feedback.innerText = "Requisitos: 10+ carac, Mayús, Minús, Núm y Símbolo.";
+    feedback.className = "text-danger";
+    btn.disabled = true;
+    btn.style.opacity = "0.5";
+    btn.style.cursor = "not-allowed";
+  }
+}
+
+// 4. ACCIONES DE SERVIDOR
+function iniciarSesion() {
+  const usuario = document.getElementById('documento-login').value;
+  const password = document.getElementById('password-login').value;
+
+  if (!usuario || !password) {
+    Swal.fire('Aviso', 'Completa Usuario y Contraseña', 'warning');
+    return;
+  }
+
+  const captcha = document.getElementById('check-robot');
+  if (captcha && !captcha.checked) {
+    Swal.fire('Aviso', 'Confirma que no eres un robot', 'warning');
+    return;
+  }
+
+  Swal.fire({ title: 'Verificando...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+  google.script.run
+    .withSuccessHandler(function(response) {
+      Swal.close();
+
+      if (response.requiereCambio) {
+        // Mostrar formulario de cambio obligatorio
+        Swal.fire({
+          title: 'Cambio de contraseña requerido',
+          html:
+            '<p style="color:#666;font-size:14px;margin-bottom:15px;">' + response.msg + '</p>' +
+            '<input id="swal-nueva-pass" type="password" class="swal2-input" placeholder="Nueva contraseña">' +
+            '<input id="swal-confirma-pass" type="password" class="swal2-input" placeholder="Confirmar contraseña">',
+          confirmButtonText: 'Cambiar y entrar',
+          confirmButtonColor: '#ef3340',
+          showCancelButton: false,
+          allowOutsideClick: false,
+          preConfirm: () => {
+            const nueva = document.getElementById('swal-nueva-pass').value;
+            const confirma = document.getElementById('swal-confirma-pass').value;
+            const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[$@$!%*?&+-._])[A-Za-z\d$@$!%*?&+-._]{10,}$/;
+
+            if (!nueva || !confirma) {
+              Swal.showValidationMessage('Completa ambos campos');
+              return false;
+            }
+            if (!regex.test(nueva)) {
+              Swal.showValidationMessage('Mín. 10 caracteres, mayúscula, minúscula, número y símbolo');
+              return false;
+            }
+            if (nueva !== confirma) {
+              Swal.showValidationMessage('Las contraseñas no coinciden');
+              return false;
+            }
+            return { nueva, usuario };
+          }
+        }).then((result) => {
+          if (result.isConfirmed) {
+            Swal.fire({ title: 'Actualizando...', didOpen: () => { Swal.showLoading(); } });
+            google.script.run
+              .withSuccessHandler(function(res) {
+                Swal.close();
+                if (res.success) {
+                Swal.fire({ icon: 'success', title: '¡Contraseña actualizada!', timer: 1500, showConfirmButton: false })
+                .then(() => { navegarAlHome(result.value.usuario, response.codRol); });
+                } else {
+                    Swal.fire('Error', res.msg, 'error');
+                }
+              })
+              .cambiarClaveObligatoria(result.value.usuario, result.value.nueva);
+          }
+        });
+
+      } else if (response.success) {
+          Swal.fire({ icon: 'success', title: '¡Acceso!', timer: 1500, showConfirmButton: false })
+          .then(() => { navegarAlHome(response.documento, response.codRol); }); // ← así
+      } else {
+        Swal.fire('Atención', response.msg, 'error');
+      }
+    })
+    .validarLogin(usuario, password);
+}
+
+function registrarNuevo() {
+  const rol       = document.getElementById('rol-registro').value;
+  const documento = document.getElementById('documento-registro').value.trim();
+  const password  = document.getElementById('password-registro').value;
+
+  // Para empleados el correo viene del backend, no del formulario
+  const correo = rol === "3"
+    ? document.getElementById('correo-registro').value.trim()
+    : '';
+
+  if (!documento || !password) {
+    Swal.fire('Error', 'Completa los campos obligatorios', 'error');
+    return;
+  }
+
+  if (rol === "3" && !correo) {
+    Swal.fire('Error', 'El correo es obligatorio para clientes', 'error');
+    return;
+  }
+
+  let datosCliente = null;
+  if (rol === "3") {
+    datosCliente = {
+      tipoDoc: document.getElementById('tipo-doc-registro').value,
+      tel:     document.getElementById('tel-registro').value,
+      n1:      document.getElementById('nombre1-registro').value,
+      n2:      document.getElementById('nombre2-registro').value,
+      a1:      document.getElementById('apellido1-registro').value,
+      a2:      document.getElementById('apellido2-registro').value
+    };
+  }
+
+  Swal.fire({ title: 'Registrando...', didOpen: () => { Swal.showLoading(); } });
+  google.script.run
+    .withSuccessHandler(function(res) {
+      Swal.close();
+      if (res.success) {
+        Swal.fire('¡Éxito!', res.msg, 'success').then(() => {
+          limpiarFormularios();
+          mostrarSeccionLogin();
+        });
+      } else {
+        Swal.fire('Error', res.msg, 'error');
+      }
+    })
+    .registrarUsuarioYCliente(documento, password, rol, correo, datosCliente);
+}
+
+function generarToken() {
+  const documento = document.getElementById('documento-recuperar').value;
+  if (!documento) {
+    Swal.fire('Aviso', 'Ingresa tu número de documento', 'warning');
+    return;
+  }
+  Swal.fire({ title: 'Enviando token...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+  google.script.run
+    .withSuccessHandler(function(res) {
+      Swal.close();
+      if (res.success) {
+        Swal.fire('¡Enviado!', res.msg, 'success').then(() => {
+          document.getElementById('recuperar-paso-1').style.display = 'none';
+          document.getElementById('recuperar-paso-2').style.display = 'block';
+          if (document.getElementById('token-recuperar')) document.getElementById('token-recuperar').value = '';
+          if (document.getElementById('password-recuperar-nuevo')) document.getElementById('password-recuperar-nuevo').value = '';
+          resaltarPasoRecuperar(2);
+        });
+      } else {
+        Swal.fire('Error', res.msg, 'error');
+      }
+    })
+    .generarTokenRecuperacion(documento);
+}
+
+function limpiarFormularios() {
+  // Login
+  const docLogin = document.getElementById('documento-login');
+  const passLogin = document.getElementById('password-login');
+  const captcha = document.getElementById('check-robot');
+  if (docLogin) docLogin.value = '';
+  if (passLogin) passLogin.value = '';
+  if (captcha) captcha.checked = false;
+
+  // Registro
+  const campos = ['documento-registro','correo-registro','password-registro',
+                  'tel-registro','nombre1-registro','nombre2-registro',
+                  'apellido1-registro','apellido2-registro'];
+  campos.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  const rolReg = document.getElementById('rol-registro');
+  if (rolReg) rolReg.selectedIndex = 0;
+  const tipoDoc = document.getElementById('tipo-doc-registro');
+  if (tipoDoc) tipoDoc.selectedIndex = 0;
+
+  // Feedback contraseña
+  const feedback = document.getElementById('pass-feedback');
+  if (feedback) {
+    feedback.innerText = 'Debe tener: 10+ caracteres, Mayúscula, Minúscula, Número y Símbolo (#$@).';
+    feedback.className = '';
+  }
+  const btnRegistrar = document.getElementById('btn-registrar-final');
+  if (btnRegistrar) {
+    btnRegistrar.disabled = true;
+    btnRegistrar.style.opacity = '0.5';
+  }
+
+  // Recuperar
+  const docRecuperar = document.getElementById('documento-recuperar');
+  const tokenRecuperar = document.getElementById('token-recuperar');
+  const passNuevo = document.getElementById('password-recuperar-nuevo');
+  if (docRecuperar) docRecuperar.value = '';
+  if (tokenRecuperar) tokenRecuperar.value = '';
+  if (passNuevo) passNuevo.value = '';
+}
+
+function validarTokenYActualizar() {
+  const token = document.getElementById('token-recuperar').value;
+  const nuevaClave = document.getElementById('password-recuperar-nuevo').value;
+
+  if (!token || !nuevaClave) {
+    Swal.fire('Aviso', 'Completa todos los campos', 'warning');
+    return;
+  }
+
+  const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[$@$!%*?&+-._])[A-Za-z\d$@$!%*?&+-._]{10,}$/;
+  if (!regex.test(nuevaClave)) {
+    Swal.fire('Contraseña inválida', 'Debe tener mínimo 10 caracteres, mayúscula, minúscula, número y símbolo.', 'warning');
+    return;
+  }
+
+  Swal.fire({ title: 'Verificando...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+  google.script.run
+    .withSuccessHandler(function(res) {
+      Swal.close();
+      if (res.success) {
+        resaltarPasoRecuperar(3);
+        Swal.fire('¡Listo!', res.msg, 'success').then(() => mostrarSeccionLogin());
+      } else {
+        Swal.fire('Error', res.msg, 'error');
+      }
+    })
+    .validarTokenYCambiarClave(token, nuevaClave);
+}
+
+function navegarAlHome(documento, codRol) {
+  google.script.run
+    .withSuccessHandler(function(url) {
+      window.top.location.href = url + '&doc=' + encodeURIComponent(documento) + '&rol=' + encodeURIComponent(codRol);
+    })
+    .getHomeUrl();
+}
+
+// ══════════════════════════════════════════════
+// SSO PASSWORDLESS — funciones cliente
+// ══════════════════════════════════════════════
+
+var _ssoDocumento = null; // guarda documento entre paso 1 y paso 2
+
+// ── SSO Google ──────────────────────────────────────────────
+function mostrarSeccionSSO() {
+  ocultarTodasSecciones();
+  document.getElementById('section-sso').style.display = 'block';
+  document.getElementById('sso-error').style.display   = 'none';
+
+  // Inicializar GSI si aún no se hizo
+  if (window._gsiListo) {
+    _renderizarBotonGoogle();
+  } else {
+    _cargarGSI();
+  }
+}
+
+function _cargarGSI() {
+  if (document.getElementById('gsi-script')) return; // ya cargado
+  var s = document.createElement('script');
+  s.id  = 'gsi-script';
+  s.src = 'https://accounts.google.com/gsi/client';
+  s.onload = function() {
+    window._gsiListo = true;
+    _renderizarBotonGoogle();
+  };
+  document.head.appendChild(s);
+}
+
+function _renderizarBotonGoogle() {
+  var container = document.getElementById('google-btn-container');
+  container.innerHTML =
+    '<button onclick="loginConGoogle()" ' +
+    'style="display:flex;align-items:center;gap:12px;padding:10px 24px;' +
+    'border:1.5px solid #dadce0;border-radius:6px;background:#fff;' +
+    'font-size:14px;font-weight:500;color:#3c4043;cursor:pointer;' +
+    'box-shadow:0 1px 3px rgba(0,0,0,0.1);">' +
+    '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20">' +
+    'Iniciar sesión con Google</button>';
+}
+
+function loginConGoogle() {
+  var err = document.getElementById('sso-error');
+  err.style.display = 'none';
+
+  Swal.fire({ title: 'Verificando cuenta...', allowOutsideClick: false, didOpen: function() { Swal.showLoading(); } });
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      Swal.close();
+
+      if (result.success) {
+        navegarAlHome(result.documento, result.codRol);
+
+      } else if (result.seleccionRol) {
+        // Correo en ambas hojas → preguntar rol
+        Swal.fire({
+          title: 'Selecciona tu perfil',
+          text: result.msg,
+          showCancelButton: true,
+          confirmButtonText: '👤 Empleado',
+          cancelButtonText: '🛒 Cliente',
+          confirmButtonColor: '#ef3340',
+          cancelButtonColor: '#555',
+          allowOutsideClick: false
+        }).then(function(res) {
+          var origen = res.isConfirmed ? 'empleado' : 'cliente';
+          Swal.fire({ title: 'Verificando...', allowOutsideClick: false, didOpen: function() { Swal.showLoading(); } });
+
+          google.script.run
+            .withSuccessHandler(function(result2) {
+              Swal.close();
+              if (result2.success) {
+                navegarAlHome(result2.documento, result2.codRol);
+              } else if (result2.requiereCambio) {
+                mostrarCambioClaveObligatorio(result2.documento, result2.codRol, result2.msg);
+              } else {
+                err.style.display = 'block';
+                err.textContent = result2.msg;
+              }
+            })
+            .withFailureHandler(function(e) {
+              Swal.close();
+              err.style.display = 'block';
+              err.textContent = 'Error: ' + e.message;
+            })
+            .validarLoginSSOConRol(result.correo, origen);
+        });
+
+      } else if (result.requiereCambio) {
+        mostrarCambioClaveObligatorio(result.documento, result.codRol, result.msg);
+
+      } else {
+        err.style.display = 'block';
+        err.textContent = result.msg;
+      }
+    })
+    .withFailureHandler(function(e) {
+      Swal.close();
+      err.style.display = 'block';
+      err.textContent = 'Error: ' + e.message;
+    })
+    .obtenerUsuarioActual();
+}
+
+</script>

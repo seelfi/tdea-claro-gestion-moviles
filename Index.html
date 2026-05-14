@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Portal Claro Colombia</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+  <?!= include('Estilos'); ?>
+  <style>
+    #app-root { transition: opacity 0.35s ease; }
+    #app-root.fading { opacity: 0; pointer-events: none; }
+
+    #transition-screen {
+      display: none; position: fixed; inset: 0;
+      background: #0a0c10; z-index: 9999;
+      align-items: center; justify-content: center;
+      flex-direction: column; gap: 20px;
+    }
+    #transition-screen.visible { display: flex; }
+    .ts-logo {
+      width: 64px; height: 64px; border-radius: 50%;
+      background: #ef3340; display: flex; align-items: center;
+      justify-content: center;
+      animation: tsPulse 1.2s ease-in-out infinite;
+    }
+    .ts-logo span {
+      color: #fff; font-size: 28px; font-weight: 900;
+      font-family: sans-serif;
+    }
+    @keyframes tsPulse {
+      0%,100% { transform: scale(1); opacity: 1; }
+      50%      { transform: scale(1.1); opacity: 0.8; }
+    }
+    .ts-brand {
+      color: #ef3340; font-size: 13px; font-weight: 700;
+      letter-spacing: 3px; font-family: sans-serif;
+    }
+    .ts-bar {
+      width: 200px; height: 2px; background: #1e232e;
+      border-radius: 2px; overflow: hidden; margin-top: 10px;
+    }
+    .ts-bar-fill {
+      height: 100%; background: #ef3340;
+      animation: tsBar 1.8s ease-in-out infinite;
+    }
+    @keyframes tsBar {
+      0%   { width: 0%;  margin-left: 0; }
+      50%  { width: 70%; margin-left: 0; }
+      100% { width: 0%;  margin-left: 100%; }
+    }
+    .ts-text { font-family: sans-serif; font-size: 14px; color: #555e70; }
+    .ts-sub  { font-family: sans-serif; font-size: 11px; color: #3a4150; }
+  </style>
+</head>
+<body>
+
+  <div id="transition-screen">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+      <div class="ts-logo"><span>C</span></div>
+      <span class="ts-brand">CLARO</span>
+    </div>
+    <div class="ts-bar"><div class="ts-bar-fill"></div></div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+      <span class="ts-text">Iniciando sesión...</span>
+      <span class="ts-sub">Tecnológico de Antioquia · Portal Corporativo</span>
+    </div>
+  </div>
+
+  <div id="app-root" style="visibility:hidden; opacity:0;">
+    <?!= include('Login'); ?>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <?!= include('Scripts'); ?>
+
+  <script>
+    /* ─────────────────────────────────────────────────────
+       GUARD DE SESIÓN
+       Si hay sesión guardada → redirige al Home via URL param
+       para no romper el contexto de google.script.run
+    ───────────────────────────────────────────────────── */
+    window.addEventListener('load', function() {
+      // Leer parámetro de URL por si venimos de un redirect
+      var params = new URLSearchParams(window.location.search);
+      var accion = params.get('accion');
+
+      // Si venimos de logout o cambio de pass → limpiar y mostrar login
+      if (accion === 'logout') {
+        sessionStorage.removeItem('nexus_session');
+        mostrarLogin();
+        return;
+      }
+
+      // Verificar sesión existente
+      var raw = null;
+      try { raw = sessionStorage.getItem('nexus_session'); } catch(e) {}
+
+      if (raw) {
+        try {
+          var data = JSON.parse(raw);
+          if (data && data.documento && data.codRol) {
+            // Hay sesión → mostrar loader y cargar Home via document.write
+            document.getElementById('transition-screen').classList.add('visible');
+            google.script.run
+              .withSuccessHandler(function(htmlHome) {
+                document.open();
+                document.write(htmlHome);
+                document.close();
+              })
+              .withFailureHandler(function() {
+                sessionStorage.removeItem('nexus_session');
+                mostrarLogin();
+              })
+              .cargarHome();
+            return;
+          }
+        } catch(e) {
+          sessionStorage.removeItem('nexus_session');
+        }
+      }
+
+      mostrarLogin();
+    });
+
+    function mostrarLogin() {
+      var root = document.getElementById('app-root');
+      root.style.visibility = '';
+      root.style.opacity    = '1';
+    }
+
+    /* ─────────────────────────────────────────────────────
+       NAVEGACIÓN AL HOME tras login exitoso
+       Guarda sesión y hace document.write del Home
+       (primer acceso — contexto GAS limpio)
+    ───────────────────────────────────────────────────── */
+    function navegarAlHome(documento, codRol) {
+      sessionStorage.setItem('nexus_session', JSON.stringify({
+        documento: String(documento),
+        codRol:    String(codRol)
+      }));
+
+      document.getElementById('transition-screen').classList.add('visible');
+      document.getElementById('app-root').classList.add('fading');
+
+      google.script.run
+        .withSuccessHandler(function(htmlHome) {
+          document.open();
+          document.write(htmlHome);
+          document.close();
+        })
+        .withFailureHandler(function() {
+          document.getElementById('transition-screen').classList.remove('visible');
+          document.getElementById('app-root').classList.remove('fading');
+          Swal.fire('Error', 'No se pudo cargar el Home.', 'error');
+        })
+        .cargarHome();
+    }
+  </script>
+</body>
+</html>

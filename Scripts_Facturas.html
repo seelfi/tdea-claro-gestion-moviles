@@ -1,0 +1,73 @@
+<script>
+/* ══════════════════════════════════════════════════════════════
+   Scripts_Facturas — Módulo de Facturas
+══════════════════════════════════════════════════════════════ */
+
+var _facturasData = [];
+
+function cargarFacturas() {
+  document.getElementById('facLoading').style.display  = 'flex';
+  document.getElementById('tablaFacturas').style.display = 'none';
+  document.getElementById('facEmpty').style.display    = 'none';
+
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      document.getElementById('facLoading').style.display = 'none';
+      if (!resp || !resp.ok || !resp.facturas.length) {
+        document.getElementById('facEmpty').style.display = 'flex';
+        return;
+      }
+      _facturasData = resp.facturas;
+      renderTablaFacturas(_facturasData);
+    })
+    .withFailureHandler(function() {
+      document.getElementById('facLoading').style.display = 'none';
+      document.getElementById('facEmpty').style.display   = 'flex';
+      mostrarToast('Error al cargar facturas', 'error');
+    })
+    .obtenerFacturas(SESSION.documento, SESSION.codRol);
+}
+
+function renderTablaFacturas(lista) {
+  var tbody  = document.getElementById('tablaFacturasBody');
+  var tabla  = document.getElementById('tablaFacturas');
+  var empty  = document.getElementById('facEmpty');
+  var footer = document.getElementById('facFooter');
+
+  if (!lista || !lista.length) {
+    tabla.style.display = 'none';
+    empty.style.display = 'flex';
+    footer.textContent  = '';
+    return;
+  }
+
+  tbody.innerHTML = '';
+  lista.forEach(function(f) {
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td><span class="factura-ref">' + escHtml(f.numeroFactura)    + '</span></td>' +
+      '<td style="font-size:13px;color:var(--text-2)">' + escHtml(f.fechaFactura) + '</td>' +
+      '<td><span class="valor-venta">' + formatCOP(f.total)          + '</span></td>' +
+      '<td><span class="id-badge">'   + escHtml(f.documentoCliente)  + '</span></td>' +
+      '<td style="font-weight:500">'  + escHtml(f.nombreVendedor)    + '</td>' +
+      '<td style="font-size:13px;color:var(--text-2)">' + escHtml(f.nombrePDV) + '</td>';
+    tbody.appendChild(tr);
+  });
+
+  tabla.style.display  = 'table';
+  empty.style.display  = 'none';
+  footer.textContent   = 'Total: ' + lista.length + ' factura' + (lista.length !== 1 ? 's' : '');
+}
+
+function filtrarFacturas() {
+  var q = document.getElementById('buscarFactura').value.toLowerCase().trim();
+  if (!q) { renderTablaFacturas(_facturasData); return; }
+  var filtradas = _facturasData.filter(function(f) {
+    return f.numeroFactura.toLowerCase().includes(q)    ||
+           f.documentoCliente.toLowerCase().includes(q) ||
+           f.nombreVendedor.toLowerCase().includes(q)   ||
+           f.nombrePDV.toLowerCase().includes(q);
+  });
+  renderTablaFacturas(filtradas);
+}
+</script>
